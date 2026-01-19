@@ -7,6 +7,9 @@ LABEL description="Terraria Dedicated Server (Vanilla)"
 # 避免 tzdata 交互
 ENV DEBIAN_FRONTEND=noninteractive
 
+RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list \
+    && sed -i 's|security.debian.org|mirrors.aliyun.com/debian-security|g' /etc/apt/sources.list
+
 # 仅安装“真正需要”的依赖（使用 BuildKit 缓存加速重复构建）
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \

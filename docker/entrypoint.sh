@@ -21,6 +21,9 @@ MAX_PLAYERS=${MAX_PLAYERS:-16}
 SERVER_PASSWORD=${SERVER_PASSWORD:-}
 LANGUAGE=${LANGUAGE:-en-US}
 
+# 新增：自动保存（默认开启）
+AUTOSAVE=${AUTOSAVE:-1}
+
 CONFIG_DIR=/config
 CONFIG_FILE=${CONFIG_DIR}/server.conf
 
@@ -47,7 +50,7 @@ mkdir -p "$CONFIG_DIR"
 #######################################
 
 if [ ! -f "$CONFIG_FILE" ]; then
-  echo "Generating server.conf ..."
+  echo "[INFO] Generating server.conf ..."
 
   cat > "$CONFIG_FILE" <<EOF
 world=$WORLD_FILE
@@ -57,6 +60,7 @@ difficulty=$DIFFICULTY
 port=$SERVER_PORT
 maxplayers=$MAX_PLAYERS
 language=$LANGUAGE
+autosave=$AUTOSAVE
 EOF
 
   if [ -n "$SERVER_PASSWORD" ]; then
@@ -66,14 +70,39 @@ EOF
   if [ -n "$SEED" ]; then
     echo "seed=$SEED" >> "$CONFIG_FILE"
   fi
+else
+  echo "[INFO] server.conf already exists, using existing config."
 fi
+
+#######################################
+# 优雅停服处理
+#######################################
+
+graceful_shutdown() {
+  echo "[INFO] Caught shutdown signal, saving world..."
+
+  if [ -n "$SERVER_PID" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
+    # 向 Terraria Server 发送 save 指令
+    echo "save" > /proc/${SERVER_PID}/fd/0
+    sleep 5
+  fi
+
+  echo "[INFO] Terraria Server stopped."
+  exit 0
+}
+
+trap graceful_shutdown SIGTERM SIGINT
 
 #######################################
 # 启动 Terraria Server
 #######################################
 
-echo "Starting Terraria Server..."
-echo "World file: $WORLD_FILE"
-echo "Port: $SERVER_PORT"
+echo "[INFO] Starting Terraria Server..."
+echo "[INFO] World file: $WORLD_FILE"
+echo "[INFO] Port: $SERVER_PORT"
+echo "[INFO] Autosave: $AUTOSAVE"
 
-exec "$SERVER_BIN" -config "$CONFIG_FILE"
+"$SERVER_BIN" -config "$CONFIG_FILE" &
+SERVER_PID=$!
+
+wait "$SERVER_PID"

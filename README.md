@@ -1,5 +1,7 @@
 # Docker Terraria Server
 
+**Language:** [中文](README_zh.md) | English
+
 A Dockerized **Vanilla Terraria Server** solution that allows you to quickly deploy and run a persistent Terraria server on Linux (e.g. CentOS) using **Docker Compose**. All core configurations are managed via environment variables, with automatic world persistence, autosave, and graceful shutdown support.
 
 > **Status**: MVP / v0.1.0

@@ -1,0 +1,12 @@
+# Safety net for `docker build .` usage; compose uses ./docker as context.
+
+.git
+.gitignore
+.DS_Store
+Thumbs.db
+desktop.ini
+
+worlds/
+config/
+*.md
+*.example

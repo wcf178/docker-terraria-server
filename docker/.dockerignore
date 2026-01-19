@@ -1,0 +1,15 @@
+# Only send what's needed for building the image.
+# (Compose build context is ./docker)
+
+# Never send local editor/OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Never send git metadata if present
+.git
+.gitignore
+
+# Ignore docs/examples not needed for building
+*.md
+*.example

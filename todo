@@ -1,0 +1,6 @@
+[] 自动下载指定版本 Server
+[] 支持 seed / 难度 / 世界尺寸
+[] 多世界 / 多 profile
+[] TShock / ModLoader
+[] Web 管理面板
+[] 自动备份（cron + tar.gz，零侵入）

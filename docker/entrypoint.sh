@@ -121,32 +121,15 @@ trap graceful_shutdown SIGTERM SIGINT
 "$TERRARIA_BIN" -config "$CONFIG_FILE" &
 SERVER_PID=$!
 
+echo "[INFO] Terraria Server started with PID: $SERVER_PID"
+
 #######################################
-# 自动备份（cron）
+# 自动备份（cron，仅调用镜像内的 backup.sh）
 #######################################
 
 if [ "$ENABLE_BACKUP" = "1" ]; then
-  cat > /usr/local/bin/backup.sh <<'EOF'
-#!/usr/bin/env bash
-set -e
-
-TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
-BACKUP_FILE="${BACKUP_DIR}/${WORLD_NAME}-${TIMESTAMP}.tar.gz"
-
-echo "[BACKUP] Saving world..."
-echo "save" > /proc/${SERVER_PID}/fd/0
-sleep 5
-
-echo "[BACKUP] Creating backup..."
-tar -czf "$BACKUP_FILE" -C "$WORLD_PATH" .
-
-echo "[BACKUP] Cleaning old backups..."
-ls -1t ${BACKUP_DIR}/*.tar.gz 2>/dev/null | tail -n +$((BACKUP_RETAIN + 1)) | xargs -r rm --
-
-echo "[BACKUP] Done."
-EOF
-
-  chmod +x /usr/local/bin/backup.sh
+  # 确保备份脚本能拿到必要的环境变量
+  export SERVER_PID WORLD_NAME WORLD_PATH BACKUP_DIR BACKUP_RETAIN BACKUP_INTERVAL
 
   echo "*/${BACKUP_INTERVAL} * * * * root /usr/local/bin/backup.sh >> /var/log/backup.log 2>&1" \
     > /etc/cron.d/terraria-backup
@@ -155,7 +138,5 @@ EOF
   crontab /etc/cron.d/terraria-backup
   cron
 fi
-echo "[INFO] Terraria Server started with PID: $SERVER_PID"
-
 
 wait "$SERVER_PID"

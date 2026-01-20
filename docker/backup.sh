@@ -15,9 +15,18 @@ if [ -z "${SERVER_PID:-}" ]; then
 fi
 
 if [ -n "${SERVER_PID:-}" ] && kill -0 "${SERVER_PID}" 2>/dev/null; then
+  echo "[BACKUP] Notifying players..."
+  
+  # 发送备份提醒
+  echo "say [Backup] The world is being backed up, please wait..." > "/proc/${SERVER_PID}/fd/0"
+  sleep 2
+  
   echo "[BACKUP] Saving world (PID=${SERVER_PID})..."
   echo "save" > "/proc/${SERVER_PID}/fd/0"
   sleep 5
+  
+  # 可选：备份完成提示
+  echo "say [Backup] Backup completed!" > "/proc/${SERVER_PID}/fd/0"
 else
   echo "[BACKUP] WARNING: SERVER_PID is not set or process not found, skipping in-game save."
 fi

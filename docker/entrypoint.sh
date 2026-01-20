@@ -147,15 +147,37 @@ echo "[INFO] Terraria Server started with PID: $SERVER_PID"
 #######################################
 
 if [ "$ENABLE_BACKUP" = "1" ]; then
-  # 确保备份脚本能拿到必要的环境变量
-  export SERVER_PID WORLD_NAME WORLD_PATH BACKUP_DIR BACKUP_RETAIN BACKUP_INTERVAL
 
-  echo "*/${BACKUP_INTERVAL} * * * * root /usr/local/bin/backup.sh >> /var/log/backup.log 2>&1" \
-    > /etc/cron.d/terraria-backup
+  mkdir -p /var/log
+  touch /var/log/cron.log /var/log/cron-backup.log /var/log/backup.log
+  chmod 644 /var/log/cron*.log /var/log/backup.log
 
+  # 创建包装脚本，确保 cron 任务能访问到环境变量
+  # SERVER_PID 留空，让 backup.sh 自动查找（更可靠）
+  cat > /usr/local/bin/backup-cron.sh <<EOF
+#!/usr/bin/env bash
+# Cron wrapper for backup.sh with environment variables
+export WORLD_NAME="${WORLD_NAME}"
+export WORLD_PATH="${WORLD_PATH}"
+export BACKUP_DIR="${BACKUP_DIR}"
+export BACKUP_RETAIN=${BACKUP_RETAIN}
+export BACKUP_INTERVAL=${BACKUP_INTERVAL}
+# SERVER_PID 留空，backup.sh 会自动查找 Terraria 进程
+/usr/local/bin/backup.sh >> /var/log/cron-backup.log 2>&1
+EOF
+
+  chmod +x /usr/local/bin/backup-cron.sh
+
+  # 设置 cron 任务（使用包装脚本）
+  CRON_LINE="*/${BACKUP_INTERVAL} * * * * root /usr/local/bin/backup-cron.sh"
+
+  echo "$CRON_LINE" > /etc/cron.d/terraria-backup
   chmod 0644 /etc/cron.d/terraria-backup
-  crontab /etc/cron.d/terraria-backup
+  
+  # 启动 cron 服务（后台运行）
   cron
+
+  echo "[INFO] Automatic backup enabled: every ${BACKUP_INTERVAL} minutes"
 fi
 
 # 等待服务器进程

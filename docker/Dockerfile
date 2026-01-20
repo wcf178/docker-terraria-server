@@ -3,7 +3,9 @@ FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# 替换 APT 源（适配 Debian 12 slim）
+#######################################
+# APT 源（Debian 12 slim 适配）
+#######################################
 RUN printf "Types: deb\n\
 URIs: http://mirrors.aliyun.com/debian\n\
 Suites: bookworm bookworm-updates\n\
@@ -16,26 +18,37 @@ Components: main\n\
 Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg\n" \
 > /etc/apt/sources.list.d/debian.sources
 
+#######################################
+# 基础依赖
+#######################################
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        ca-certificates \
        bash \
+       curl \
+       unzip \
        libicu72 \
     && rm -rf /var/lib/apt/lists/*
 
+#######################################
+# 工作目录
+#######################################
 WORKDIR /opt/terraria
 
-# 拷贝 server 文件
-COPY docker/terraria-server/ /opt/terraria/
-
-RUN chmod +x /opt/terraria/TerrariaServer.bin.x86_64
-
-# entrypoint
+#######################################
+# Entrypoint
+#######################################
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+#######################################
+# 数据目录
+#######################################
 RUN mkdir -p /worlds /config
 
+#######################################
+# 端口
+#######################################
 EXPOSE 7777
 
 ENTRYPOINT ["/entrypoint.sh"]

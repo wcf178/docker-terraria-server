@@ -24,10 +24,14 @@ LANGUAGE=${LANGUAGE:-en-US}
 # 新增：自动保存（默认开启）
 AUTOSAVE=${AUTOSAVE:-1}
 
+TERRARIA_VERSION=${TERRARIA_VERSION:-1.4.4.9}
+
+TERRARIA_ROOT=/opt/terraria
+TERRARIA_BIN=${TERRARIA_ROOT}/TerrariaServer.bin.x86_64
+
+
 CONFIG_DIR=/config
 CONFIG_FILE=${CONFIG_DIR}/server.conf
-
-SERVER_BIN=/opt/terraria/TerrariaServer.bin.x86_64
 
 #######################################
 # 时区设置
@@ -44,6 +48,40 @@ fi
 
 mkdir -p "$WORLD_PATH"
 mkdir -p "$CONFIG_DIR"
+
+#######################################
+# 自动下载 Terraria Server（指定版本）
+#######################################
+
+TERRARIA_VERSION=${TERRARIA_VERSION:-1.4.4.9}
+TERRARIA_ROOT=/opt/terraria
+TERRARIA_BIN=${TERRARIA_ROOT}/TerrariaServer.bin.x86_64
+
+DOWNLOAD_URL="https://terraria.org/api/download/pc-dedicated-server/${TERRARIA_VERSION}.zip"
+TMP_DIR=/tmp/terraria-server
+
+mkdir -p "$TERRARIA_ROOT"
+
+if [ ! -f "$TERRARIA_BIN" ]; then
+  echo "[INFO] Terraria Server not found."
+  echo "[INFO] Downloading Terraria Server v${TERRARIA_VERSION}..."
+
+  rm -rf "$TMP_DIR"
+  mkdir -p "$TMP_DIR"
+
+  curl -fL "$DOWNLOAD_URL" -o "$TMP_DIR/server.zip"
+
+  unzip -q "$TMP_DIR/server.zip" -d "$TMP_DIR"
+
+  cp "$TMP_DIR/${TERRARIA_VERSION}/Linux/TerrariaServer.bin.x86_64" "$TERRARIA_BIN"
+  chmod +x "$TERRARIA_BIN"
+
+  echo "[INFO] Terraria Server v${TERRARIA_VERSION} installed."
+else
+  echo "[INFO] Terraria Server already exists, skipping download."
+fi
+
+
 
 #######################################
 # 生成 server.conf（仅在不存在时）

@@ -101,12 +101,18 @@ EOF
 fi
 
 #######################################
-# 优雅停服
+# 优雅停服函数
 #######################################
 
 graceful_shutdown() {
-  echo "[INFO] Saving world before shutdown..."
-  if kill -0 "$SERVER_PID" 2>/dev/null; then
+  echo "[INFO] Received shutdown signal, saving world..."
+  
+  # 如果 SERVER_PID 未设置，尝试自动查找
+  if [ -z "${SERVER_PID:-}" ]; then
+    SERVER_PID=$(pgrep -f 'TerrariaServer.bin.x86_64' | head -n 1 || true)
+  fi
+  
+  if [ -n "${SERVER_PID:-}" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
     echo "save" > /proc/${SERVER_PID}/fd/0
     sleep 5
     
@@ -114,10 +120,15 @@ graceful_shutdown() {
       echo "[INFO] Creating final backup before shutdown..."
       /usr/local/bin/backup.sh || true
     fi
+    
+    # 发送 SIGTERM 给服务器进程，等待其退出
+    kill -TERM "$SERVER_PID" 2>/dev/null || true
+    wait "$SERVER_PID" 2>/dev/null || true
   fi
   exit 0
 }
 
+# 设置信号处理（在启动服务器之前设置，确保能捕获信号）
 trap graceful_shutdown SIGTERM SIGINT
 
 #######################################
@@ -145,4 +156,10 @@ if [ "$ENABLE_BACKUP" = "1" ]; then
   cron
 fi
 
-wait "$SERVER_PID"
+# 等待服务器进程
+# 如果收到 SIGTERM/SIGINT，wait 会被中断，trap graceful_shutdown 会被触发
+# 如果进程正常或异常退出，wait 返回，脚本正常结束
+wait "$SERVER_PID" || {
+  EXIT_CODE=$?
+  echo "[WARN] Server process exited unexpectedly with code $EXIT_CODE"
+}

@@ -5,6 +5,12 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV MONO_CONFIG=/etc/mono/config
 
 #######################################
+# Terraria 版本（构建时下载）
+#######################################
+ARG TERRARIA_VERSION=1449
+ENV TERRARIA_VERSION=${TERRARIA_VERSION}
+
+#######################################
 # APT 源（Debian 12 slim 适配）
 #######################################
 RUN printf "Types: deb\n\
@@ -48,6 +54,20 @@ RUN mkdir -p /etc/mono \
 # 工作目录
 #######################################
 WORKDIR /opt/terraria
+
+#######################################
+# 预下载 Terraria Server 可执行文件
+#######################################
+RUN set -eux; \
+  DOWNLOAD_URL="https://terraria.org/api/download/pc-dedicated-server/terraria-server-${TERRARIA_VERSION}.zip"; \
+  TMP_DIR=/tmp/terraria-server; \
+  mkdir -p "${TMP_DIR}" /opt/terraria; \
+  echo "[BUILD] Downloading Terraria Server v${TERRARIA_VERSION} from ${DOWNLOAD_URL}"; \
+  curl -fL "${DOWNLOAD_URL}" -o "${TMP_DIR}/server.zip"; \
+  unzip -q "${TMP_DIR}/server.zip" -d "${TMP_DIR}"; \
+  cp "${TMP_DIR}/${TERRARIA_VERSION}/Linux/TerrariaServer.bin.x86_64" /opt/terraria/TerrariaServer.bin.x86_64; \
+  chmod +x /opt/terraria/TerrariaServer.bin.x86_64; \
+  rm -rf "${TMP_DIR}"
 
 #######################################
 # Entrypoint

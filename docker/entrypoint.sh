@@ -4,8 +4,8 @@ set -e
 #######################################
 # 设置 Mono 环境变量
 #######################################
-export MONO_CONFIG=/etc/mono/config
-export MONO_PATH=/usr/lib/mono
+export MONO_CONFIG=/opt/terraria/monoconfig
+export MONO_PATH=/opt/terraria
 
 #######################################
 # 基础变量 & 默认值

@@ -2,7 +2,6 @@
 FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV MONO_CONFIG=/etc/mono/config
 
 #######################################
 # Terraria 版本（构建时下载）
@@ -36,19 +35,7 @@ RUN apt-get update \
        unzip \
        libicu72 \
        cron \
-       mono-complete \
-       libgdiplus \
     && rm -rf /var/lib/apt/lists/*
-
-#######################################
-# 创建 monoconfig 文件
-#######################################
-RUN mkdir -p /etc/mono \
-    && echo '<configuration>\n\
-  <dllmap dll="i:dl">\n\
-    <dllentry dll="__Internal" name="dlopen" target="dlopen"/>\n\
-  </dllmap>\n\
-</configuration>' > /etc/mono/config
 
 #######################################
 # 工作目录
@@ -65,7 +52,7 @@ RUN set -eux; \
   echo "[BUILD] Downloading Terraria Server v${TERRARIA_VERSION} from ${DOWNLOAD_URL}"; \
   curl -fL "${DOWNLOAD_URL}" -o "${TMP_DIR}/server.zip"; \
   unzip -q "${TMP_DIR}/server.zip" -d "${TMP_DIR}"; \
-  cp "${TMP_DIR}/${TERRARIA_VERSION}/Linux/TerrariaServer.bin.x86_64" /opt/terraria/TerrariaServer.bin.x86_64; \
+  cp -r "${TMP_DIR}/${TERRARIA_VERSION}/Linux/." /opt/terraria/; \
   chmod +x /opt/terraria/TerrariaServer.bin.x86_64; \
   rm -rf "${TMP_DIR}"
 

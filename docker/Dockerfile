@@ -2,6 +2,7 @@
 FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV MONO_CONFIG=/etc/mono/config
 
 #######################################
 # APT 源（Debian 12 slim 适配）
@@ -29,7 +30,19 @@ RUN apt-get update \
        unzip \
        libicu72 \
        cron \
+       mono-complete \
+       libgdiplus \
     && rm -rf /var/lib/apt/lists/*
+
+#######################################
+# 创建 monoconfig 文件
+#######################################
+RUN mkdir -p /etc/mono \
+    && echo '<configuration>\n\
+  <dllmap dll="i:dl">\n\
+    <dllentry dll="__Internal" name="dlopen" target="dlopen"/>\n\
+  </dllmap>\n\
+</configuration>' > /etc/mono/config
 
 #######################################
 # 工作目录

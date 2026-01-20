@@ -56,7 +56,8 @@ tar -czf "$SAFETY_BACKUP" "$WORLD_DIR"
 echo "[INFO] Restoring world from $BACKUP_FILE ..."
 
 rm -rf "${WORLD_DIR:?}/"*
-tar -xzf "$BACKUP_PATH" -C /
+mkdir -p "$WORLD_DIR"
+tar -xzf "$BACKUP_PATH" -C "$WORLD_DIR"
 
 echo "[INFO] Restore completed successfully."
 echo "[INFO] Previous world backed up as:"

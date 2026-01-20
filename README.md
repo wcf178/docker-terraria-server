@@ -140,16 +140,13 @@ Backups are stored as .tar.gz files in:
 ### 1. stop server
 docker compose down
 
-### 2. entry container
-docker compose run --rm terraria bash
-
-### 3. check backups
+### 2. check backups
 ls /backups
 
-### 4. restore
-restore.sh world_20260118_030000.tar.gz
+### 3. restore
+docker compose run --rm --entrypoint restore.sh terraria world_20260118_030000.tar.gz
 
-### 5. restart
+### 4. restart
 docker compose up -d
 
 ---

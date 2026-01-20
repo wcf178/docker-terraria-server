@@ -33,6 +33,7 @@ RUN apt-get update \
        bash \
        curl \
        unzip \
+       procps \
        libicu72 \
        cron \
     && rm -rf /var/lib/apt/lists/*

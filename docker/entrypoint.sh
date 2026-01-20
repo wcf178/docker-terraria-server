@@ -21,14 +21,11 @@ MAX_PLAYERS=${MAX_PLAYERS:-16}
 SERVER_PASSWORD=${SERVER_PASSWORD:-}
 LANGUAGE=${LANGUAGE:-en-US}
 
-# 新增：自动保存（默认开启）
 AUTOSAVE=${AUTOSAVE:-1}
 
 TERRARIA_VERSION=${TERRARIA_VERSION:-1.4.4.9}
-
 TERRARIA_ROOT=/opt/terraria
 TERRARIA_BIN=${TERRARIA_ROOT}/TerrariaServer.bin.x86_64
-
 
 CONFIG_DIR=/config
 CONFIG_FILE=${CONFIG_DIR}/server.conf
@@ -46,50 +43,37 @@ fi
 # 创建必要目录
 #######################################
 
-mkdir -p "$WORLD_PATH"
-mkdir -p "$CONFIG_DIR"
+mkdir -p "$WORLD_PATH" "$CONFIG_DIR" "$TERRARIA_ROOT"
 
 #######################################
-# 自动下载 Terraria Server（指定版本）
+# 自动下载 Terraria Server
 #######################################
-
-TERRARIA_VERSION=${TERRARIA_VERSION:-1.4.4.9}
-TERRARIA_ROOT=/opt/terraria
-TERRARIA_BIN=${TERRARIA_ROOT}/TerrariaServer.bin.x86_64
 
 DOWNLOAD_URL="https://terraria.org/api/download/pc-dedicated-server/${TERRARIA_VERSION}.zip"
 TMP_DIR=/tmp/terraria-server
 
-mkdir -p "$TERRARIA_ROOT"
-
 if [ ! -f "$TERRARIA_BIN" ]; then
-  echo "[INFO] Terraria Server not found."
   echo "[INFO] Downloading Terraria Server v${TERRARIA_VERSION}..."
 
   rm -rf "$TMP_DIR"
   mkdir -p "$TMP_DIR"
 
   curl -fL "$DOWNLOAD_URL" -o "$TMP_DIR/server.zip"
-
   unzip -q "$TMP_DIR/server.zip" -d "$TMP_DIR"
 
   cp "$TMP_DIR/${TERRARIA_VERSION}/Linux/TerrariaServer.bin.x86_64" "$TERRARIA_BIN"
   chmod +x "$TERRARIA_BIN"
 
-  echo "[INFO] Terraria Server v${TERRARIA_VERSION} installed."
+  echo "[INFO] Terraria Server installed."
 else
   echo "[INFO] Terraria Server already exists, skipping download."
 fi
 
-
-
 #######################################
-# 生成 server.conf（仅在不存在时）
+# 生成 server.conf
 #######################################
 
 if [ ! -f "$CONFIG_FILE" ]; then
-  echo "[INFO] Generating server.conf ..."
-
   cat > "$CONFIG_FILE" <<EOF
 world=$WORLD_FILE
 autocreate=$AUTO_CREATE
@@ -101,46 +85,30 @@ language=$LANGUAGE
 autosave=$AUTOSAVE
 EOF
 
-  if [ -n "$SERVER_PASSWORD" ]; then
-    echo "password=$SERVER_PASSWORD" >> "$CONFIG_FILE"
-  fi
-
-  if [ -n "$SEED" ]; then
-    echo "seed=$SEED" >> "$CONFIG_FILE"
-  fi
-else
-  echo "[INFO] server.conf already exists, using existing config."
+  [ -n "$SERVER_PASSWORD" ] && echo "password=$SERVER_PASSWORD" >> "$CONFIG_FILE"
+  [ -n "$SEED" ] && echo "seed=$SEED" >> "$CONFIG_FILE"
 fi
 
 #######################################
-# 优雅停服处理
+# 优雅停服
 #######################################
 
 graceful_shutdown() {
-  echo "[INFO] Caught shutdown signal, saving world..."
-
-  if [ -n "$SERVER_PID" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
-    # 向 Terraria Server 发送 save 指令
+  echo "[INFO] Saving world before shutdown..."
+  if kill -0 "$SERVER_PID" 2>/dev/null; then
     echo "save" > /proc/${SERVER_PID}/fd/0
     sleep 5
   fi
-
-  echo "[INFO] Terraria Server stopped."
   exit 0
 }
 
 trap graceful_shutdown SIGTERM SIGINT
 
 #######################################
-# 启动 Terraria Server
+# 启动服务器
 #######################################
 
-echo "[INFO] Starting Terraria Server..."
-echo "[INFO] World file: $WORLD_FILE"
-echo "[INFO] Port: $SERVER_PORT"
-echo "[INFO] Autosave: $AUTOSAVE"
-
-"$SERVER_BIN" -config "$CONFIG_FILE" &
+"$TERRARIA_BIN" -config "$CONFIG_FILE" &
 SERVER_PID=$!
 
 wait "$SERVER_PID"

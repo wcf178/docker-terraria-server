@@ -23,7 +23,7 @@ LANGUAGE=${LANGUAGE:-en-US}
 
 AUTOSAVE=${AUTOSAVE:-1}
 
-TERRARIA_VERSION=${TERRARIA_VERSION:-1.4.4.9}
+TERRARIA_VERSION=${TERRARIA_VERSION:-1449}
 TERRARIA_ROOT=/opt/terraria
 TERRARIA_BIN=${TERRARIA_ROOT}/TerrariaServer.bin.x86_64
 
@@ -54,7 +54,7 @@ mkdir -p "$WORLD_PATH" "$CONFIG_DIR" "$TERRARIA_ROOT" "$BACKUP_DIR"
 # 自动下载 Terraria Server
 #######################################
 
-DOWNLOAD_URL="https://terraria.org/api/download/pc-dedicated-server/${TERRARIA_VERSION}.zip"
+DOWNLOAD_URL="https://terraria.org/api/download/pc-dedicated-server/terraria-server-/${TERRARIA_VERSION}.zip"
 TMP_DIR=/tmp/terraria-server
 
 if [ ! -f "$TERRARIA_BIN" ]; then

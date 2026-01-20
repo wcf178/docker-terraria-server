@@ -17,6 +17,7 @@ services:
     volumes:
       - ./worlds:/worlds
       - ./config:/config
+      - ./backups:/backups
 
     stdin_open: true
     tty: true

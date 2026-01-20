@@ -28,6 +28,7 @@ RUN apt-get update \
        curl \
        unzip \
        libicu72 \
+       cron \
     && rm -rf /var/lib/apt/lists/*
 
 #######################################
@@ -40,6 +41,18 @@ WORKDIR /opt/terraria
 #######################################
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
+
+#######################################
+# backup script
+#######################################
+COPY docker/backup.sh /usr/local/bin/backup.sh
+RUN chmod +x /usr/local/bin/backup.sh
+
+#######################################
+# restore script
+#######################################
+COPY docker/restore.sh /usr/local/bin/restore.sh
+RUN chmod +x /usr/local/bin/restore.sh
 
 #######################################
 # 数据目录

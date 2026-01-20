@@ -90,6 +90,70 @@ All configurations are controlled via environment variables and written to `serv
 
 ---
 
+## 🎮 Terraria Server Version
+
+The server version is configurable via environment variable:
+
+```env
+TERRARIA_VERSION=1.4.4.9
+```
+On container startup:
+
+* If the specified version is not present, it will be downloaded automatically
+
+* Existing installations are reused
+
+* No image rebuild is required when switching versions
+
+---
+
+## 💾 Automatic Backups
+
+This project supports automatic world backups via cron.
+
+### Configuration
+
+```env
+ENABLE_BACKUP=1
+BACKUP_INTERVAL=30
+BACKUP_RETAIN=10
+```
+### Backup Location
+
+Backups are stored as .tar.gz files in:
+
+```bash
+/backups
+```
+
+### Restore
+
+1. Stop the server
+
+2. Extract a backup into /worlds
+
+3. Restart the container
+
+---
+## 💾 Restore
+
+### 1. stop server
+docker compose down
+
+### 2. entry container
+docker compose run --rm terraria bash
+
+### 3. check backups
+ls /backups
+
+### 4. restore
+restore.sh world_20260118_030000.tar.gz
+
+### 5. restart
+docker compose up -d
+
+---
+
 ## 💾 Data Persistence
 
 ### Volumes
@@ -105,6 +169,7 @@ Example (docker-compose.yml):
 volumes:
   - ./worlds:/worlds
   - ./config:/config
+  - ./backups:/backups
 ```
 
 Without volumes, world data **will be lost** on container restart.

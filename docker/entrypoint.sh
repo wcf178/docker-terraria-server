@@ -30,6 +30,11 @@ TERRARIA_BIN=${TERRARIA_ROOT}/TerrariaServer.bin.x86_64
 CONFIG_DIR=/config
 CONFIG_FILE=${CONFIG_DIR}/server.conf
 
+ENABLE_BACKUP=${ENABLE_BACKUP:-1}
+BACKUP_INTERVAL=${BACKUP_INTERVAL:-30}
+BACKUP_RETAIN=${BACKUP_RETAIN:-10}
+BACKUP_DIR=${BACKUP_DIR:-/backups}
+
 #######################################
 # 时区设置
 #######################################
@@ -43,7 +48,7 @@ fi
 # 创建必要目录
 #######################################
 
-mkdir -p "$WORLD_PATH" "$CONFIG_DIR" "$TERRARIA_ROOT"
+mkdir -p "$WORLD_PATH" "$CONFIG_DIR" "$TERRARIA_ROOT" "$BACKUP_DIR"
 
 #######################################
 # 自动下载 Terraria Server
@@ -98,6 +103,11 @@ graceful_shutdown() {
   if kill -0 "$SERVER_PID" 2>/dev/null; then
     echo "save" > /proc/${SERVER_PID}/fd/0
     sleep 5
+    
+    if [ "$ENABLE_BACKUP" = "1" ]; then
+      echo "[INFO] Creating final backup before shutdown..."
+      /usr/local/bin/backup.sh || true
+    fi
   fi
   exit 0
 }
@@ -110,5 +120,42 @@ trap graceful_shutdown SIGTERM SIGINT
 
 "$TERRARIA_BIN" -config "$CONFIG_FILE" &
 SERVER_PID=$!
+
+#######################################
+# 自动备份（cron）
+#######################################
+
+if [ "$ENABLE_BACKUP" = "1" ]; then
+  cat > /usr/local/bin/backup.sh <<'EOF'
+#!/usr/bin/env bash
+set -e
+
+TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
+BACKUP_FILE="${BACKUP_DIR}/${WORLD_NAME}-${TIMESTAMP}.tar.gz"
+
+echo "[BACKUP] Saving world..."
+echo "save" > /proc/${SERVER_PID}/fd/0
+sleep 5
+
+echo "[BACKUP] Creating backup..."
+tar -czf "$BACKUP_FILE" -C "$WORLD_PATH" .
+
+echo "[BACKUP] Cleaning old backups..."
+ls -1t ${BACKUP_DIR}/*.tar.gz 2>/dev/null | tail -n +$((BACKUP_RETAIN + 1)) | xargs -r rm --
+
+echo "[BACKUP] Done."
+EOF
+
+  chmod +x /usr/local/bin/backup.sh
+
+  echo "*/${BACKUP_INTERVAL} * * * * root /usr/local/bin/backup.sh >> /var/log/backup.log 2>&1" \
+    > /etc/cron.d/terraria-backup
+
+  chmod 0644 /etc/cron.d/terraria-backup
+  crontab /etc/cron.d/terraria-backup
+  cron
+fi
+echo "[INFO] Terraria Server started with PID: $SERVER_PID"
+
 
 wait "$SERVER_PID"

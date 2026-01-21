@@ -1,6 +1,18 @@
 #!/usr/bin/env bash
 set -e
 
+# 创建日志目录并设置日志文件
+mkdir -p /var/log
+LOG_FILE="/var/log/entrypoint.log"
+BACKUP_LOG="/var/log/backup.log"
+RESTORE_LOG="/var/log/restore.log"
+
+# 创建日志文件
+touch "$LOG_FILE" "$BACKUP_LOG" "$RESTORE_LOG"
+
+# 重定向所有输出到日志文件，同时保留到 stdout/stderr
+exec > >(tee -a "$LOG_FILE") 2>&1
+
 #######################################
 # 设置 Mono 环境变量
 #######################################
@@ -148,7 +160,8 @@ graceful_shutdown() {
   # 最后再执行一次备份（如果启用）
   if [ "$ENABLE_BACKUP" = "1" ]; then
     echo "[INFO] Creating final backup before shutdown..."
-    /usr/local/bin/backup.sh || true
+    # 设置环境变量表示这是关闭时的备份，避免显示警告
+    SHUTDOWN_BACKUP=1 /usr/local/bin/backup.sh || true
   fi
 
   echo "[INFO] Graceful shutdown completed"
@@ -237,7 +250,7 @@ export BACKUP_DIR="${BACKUP_DIR}"
 export BACKUP_RETAIN=${BACKUP_RETAIN}
 export BACKUP_INTERVAL=${BACKUP_INTERVAL}
 # SERVER_PID 留空，backup.sh 会自动查找 Terraria 进程
-/usr/local/bin/backup.sh >> /var/log/cron-backup.log 2>&1
+/usr/local/bin/backup.sh
 EOF
 
   chmod +x /usr/local/bin/backup-cron.sh

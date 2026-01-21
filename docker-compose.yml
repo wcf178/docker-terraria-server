@@ -18,6 +18,7 @@ services:
       - ./worlds:/worlds
       - ./config:/config
       - ./backups:/backups
+      - ./logs:/var/log
 
     stdin_open: true
     tty: true

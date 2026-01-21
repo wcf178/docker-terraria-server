@@ -124,16 +124,33 @@ send_cmd() {
 graceful_shutdown() {
   echo "[INFO] Received shutdown signal, saving world via screen..."
 
-  # 先通知并保存
-  send_cmd "say [Server] Shutting down, saving world..." || true
-  send_cmd "save" || true
-  sleep 5
+  # 检查 screen 会话是否存在
+  if screen -ls | grep -q "\.${SCREEN_SESSION}[[:space:]]"; then
+    # 先通知并保存
+    send_cmd "say [Server] Shutting down, saving world..." || true
+    send_cmd "save" || true
+    sleep 5
 
-  # 触发 on-quit 保存和退出
-  send_cmd "exit" || true
+    # 触发 on-quit 保存和退出
+    send_cmd "exit" || true
 
-  # 允许一点时间让服务器退出
-  sleep 5
+    # 等待服务器退出，最多等 10 秒
+    local timeout=10
+    while [ $timeout -gt 0 ] && screen -ls | grep -q "\.${SCREEN_SESSION}[[:space:]]"; do
+      echo "[INFO] Waiting for Terraria server to exit... (${timeout}s remaining)"
+      sleep 1
+      timeout=$((timeout - 1))
+    done
+
+    # 如果服务器还没退出，强制杀死 screen 会话
+    if screen -ls | grep -q "\.${SCREEN_SESSION}[[:space:]]"; then
+      echo "[WARN] Server didn't exit gracefully, killing screen session..."
+      screen -S "$SCREEN_SESSION" -X quit || true
+      sleep 2
+    fi
+  else
+    echo "[WARN] Screen session '$SCREEN_SESSION' not found during shutdown"
+  fi
 
   # 最后再执行一次备份（如果启用）
   if [ "$ENABLE_BACKUP" = "1" ]; then
@@ -141,6 +158,7 @@ graceful_shutdown() {
     /usr/local/bin/backup.sh || true
   fi
 
+  echo "[INFO] Graceful shutdown completed"
   exit 0
 }
 
@@ -153,9 +171,19 @@ trap graceful_shutdown SIGTERM SIGINT
 
 echo "[INFO] Starting Terraria Server in screen session: $SCREEN_SESSION"
 
+# 启动 screen 会话（detached），但监控其状态
 screen -DmS "$SCREEN_SESSION" "$TERRARIA_BIN" -config "$CONFIG_FILE"
 
-echo "[INFO] Terraria Server started in screen session: $SCREEN_SESSION"
+# 等待一秒确保 screen 会话启动
+sleep 1
+
+# 检查 screen 会话是否成功创建
+if screen -ls | grep -q "\.${SCREEN_SESSION}[[:space:]]"; then
+  echo "[INFO] Terraria Server started in screen session: $SCREEN_SESSION"
+else
+  echo "[ERROR] Failed to create screen session: $SCREEN_SESSION"
+  exit 1
+fi
 
 #######################################
 # 自动备份（cron，仅调用镜像内的 backup.sh）
@@ -195,7 +223,13 @@ EOF
   echo "[INFO] Automatic backup enabled: every ${BACKUP_INTERVAL} minutes"
 fi
 
-# 主进程只需保持存活，交由 screen 管理 Terraria 生命周期
-while true; do
-  sleep 3600
+# 主进程监控 screen 会话状态，交由 trap 处理 SIGTERM
+echo "[INFO] Container ready. Terraria server is running in screen session '$SCREEN_SESSION'"
+
+# 监控 screen 会话，如果会话退出则退出容器
+while screen -ls | grep -q "\.${SCREEN_SESSION}[[:space:]]"; do
+  sleep 5
 done
+
+echo "[INFO] Screen session '$SCREEN_SESSION' has ended"
+exit 0

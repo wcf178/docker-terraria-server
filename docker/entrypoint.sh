@@ -171,11 +171,19 @@ export MONO_PATH=/opt/terraria
 # 启动 screen 会话（detached），但监控其状态
 echo "[DEBUG] Executing: screen -DmS $SCREEN_SESSION $TERRARIA_BIN -config $CONFIG_FILE"
 
-# 捕获 screen 命令的退出状态
-if screen -DmS "$SCREEN_SESSION" "$TERRARIA_BIN" -config "$CONFIG_FILE"; then
-  echo "[DEBUG] Screen command executed successfully"
+# 启动 screen 会话（异步，不等待）
+screen -DmS "$SCREEN_SESSION" "$TERRARIA_BIN" -config "$CONFIG_FILE" &
+SCREEN_PID=$!
+
+# 短暂等待 screen 启动
+sleep 1
+
+# 检查 screen 进程是否还存在
+if kill -0 $SCREEN_PID 2>/dev/null; then
+  echo "[DEBUG] Screen command started successfully (PID: $SCREEN_PID)"
 else
-  echo "[ERROR] Screen command failed with exit code $?"
+  echo "[ERROR] Screen command failed to start or exited immediately"
+  wait $SCREEN_PID 2>/dev/null || true
   exit 1
 fi
 

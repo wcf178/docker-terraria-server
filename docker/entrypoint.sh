@@ -169,23 +169,40 @@ export MONO_CONFIG=/opt/terraria/monoconfig
 export MONO_PATH=/opt/terraria
 
 # 启动 screen 会话（detached），但监控其状态
-screen -DmS "$SCREEN_SESSION" "$TERRARIA_BIN" -config "$CONFIG_FILE"
+echo "[DEBUG] Executing: screen -DmS $SCREEN_SESSION $TERRARIA_BIN -config $CONFIG_FILE"
 
-# 等待一秒确保 screen 会话启动
-sleep 1
+# 捕获 screen 命令的退出状态
+if screen -DmS "$SCREEN_SESSION" "$TERRARIA_BIN" -config "$CONFIG_FILE"; then
+  echo "[DEBUG] Screen command executed successfully"
+else
+  echo "[ERROR] Screen command failed with exit code $?"
+  exit 1
+fi
+
+# 等待两秒确保 screen 会话启动或失败
+echo "[DEBUG] Waiting for screen session to stabilize..."
+sleep 2
 
 # 检查 screen 会话是否成功创建
 if screen -ls | grep -q "\.${SCREEN_SESSION}[[:space:]]"; then
   echo "[INFO] Terraria Server started in screen session: $SCREEN_SESSION"
 else
-  echo "[ERROR] Failed to create screen session: $SCREEN_SESSION"
+  echo "[ERROR] Screen session '$SCREEN_SESSION' was not created or has already exited"
   echo "[DEBUG] Checking Terraria binary: $TERRARIA_BIN"
   ls -la "$TERRARIA_BIN" || echo "Binary not found"
   echo "[DEBUG] Checking config file: $CONFIG_FILE"
   ls -la "$CONFIG_FILE" || echo "Config not found"
+  cat "$CONFIG_FILE" 2>/dev/null || echo "Cannot read config file"
   echo "[DEBUG] Checking Mono environment:"
   echo "MONO_CONFIG=$MONO_CONFIG"
   echo "MONO_PATH=$MONO_PATH"
+  echo "[DEBUG] Checking Mono installation:"
+  which mono || echo "mono not found in PATH"
+  mono --version 2>/dev/null || echo "mono command failed"
+  echo "[DEBUG] Current screen sessions:"
+  screen -ls || echo "screen command failed"
+  echo "[DEBUG] Trying to run Terraria directly for 5 seconds..."
+  timeout 5s "$TERRARIA_BIN" -config "$CONFIG_FILE" || echo "Terraria direct run failed"
   exit 1
 fi
 
@@ -234,6 +251,7 @@ echo "[INFO] Container ready. Terraria server is running in screen session '$SCR
 
 # 监控 screen 会话，如果会话退出则退出容器
 while screen -ls | grep -q "\.${SCREEN_SESSION}[[:space:]]"; do
+  echo "[DEBUG] Screen session '$SCREEN_SESSION' is still running..."
   sleep 5
 done
 

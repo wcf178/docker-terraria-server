@@ -36,6 +36,7 @@ RUN apt-get update \
        procps \
        libicu72 \
        cron \
+       screen \
     && rm -rf /var/lib/apt/lists/*
 
 #######################################

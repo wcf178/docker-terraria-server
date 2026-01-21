@@ -147,6 +147,16 @@ docker kill <容器名或ID>
 docker compose logs -f
 ```
 
+### 查看 screen 会话（可选）
+
+容器内使用 `screen` 管理 Terraria 进程：
+
+```bash
+docker compose exec terraria bash
+screen -ls          # 列出会话（默认名：terraria）
+screen -r terraria  # 附加到会话（只读/调试用）
+```
+
 ### 重启服务器
 
 ```bash
@@ -158,6 +168,14 @@ docker compose restart
 ```bash
 docker compose exec terraria bash
 ```
+
+### 手动触发备份
+
+```bash
+docker compose exec terraria backup.sh
+```
+
+该命令会通过 `screen` 向服务器发送 `save` 命令，并在 `/backups` 目录生成一个 `world-时间戳.tar.gz` 备份包。
 
 ---
 

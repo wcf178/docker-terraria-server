@@ -3,32 +3,24 @@ set -e
 
 TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
 BACKUP_FILE="${BACKUP_DIR}/${WORLD_NAME}-${TIMESTAMP}.tar.gz"
+SCREEN_SESSION=${SCREEN_SESSION:-terraria}
 
-# 如果没有从外部注入 SERVER_PID，则尝试自动查找 Terraria 进程
-if [ -z "${SERVER_PID:-}" ]; then
-  # 优先匹配专用服二进制名称
-  SERVER_PID=$(pgrep -f 'TerrariaServer.bin.x86_64' || true)
-  # 回退匹配通用名称（避免匹配到 restore/backup 自身）
-  if [ -z "${SERVER_PID}" ]; then
-    SERVER_PID=$(pgrep -f 'TerrariaServer( |$)' || true)
-  fi
-fi
+# 确认 screen 会话存在
+if screen -ls | grep -q "\.${SCREEN_SESSION}[[:space:]]"; then
+  echo "[BACKUP] Notifying players via screen session: ${SCREEN_SESSION}"
 
-if [ -n "${SERVER_PID:-}" ] && kill -0 "${SERVER_PID}" 2>/dev/null; then
-  echo "[BACKUP] Notifying players..."
-  
-  # 发送备份提醒
-  echo "say [Backup] The world is being backed up, please wait..." > "/proc/${SERVER_PID}/fd/0"
+  # 通过 screen 注入命令（注意 CR）
+  screen -S "${SCREEN_SESSION}" -p 0 -X stuff "say [Backup] The world is being backed up, please wait..."$'\r' || true
   sleep 2
-  
-  echo "[BACKUP] Saving world (PID=${SERVER_PID})..."
-  echo "save" > "/proc/${SERVER_PID}/fd/0"
+
+  echo "[BACKUP] Saving world via screen..."
+  screen -S "${SCREEN_SESSION}" -p 0 -X stuff "save"$'\r' || true
   sleep 5
-  
-  # 可选：备份完成提示
-  echo "say [Backup] Backup completed!" > "/proc/${SERVER_PID}/fd/0"
+
+  # 备份完成提示
+  screen -S "${SCREEN_SESSION}" -p 0 -X stuff "say [Backup] Backup completed!"$'\r' || true
 else
-  echo "[BACKUP] WARNING: SERVER_PID is not set or process not found, skipping in-game save."
+  echo "[BACKUP] WARNING: screen session '${SCREEN_SESSION}' not found, skipping in-game save commands."
 fi
 
 echo "[BACKUP] Creating backup: ${BACKUP_FILE}"

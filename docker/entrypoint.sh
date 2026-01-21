@@ -103,30 +103,44 @@ EOF
 fi
 
 #######################################
-# 优雅停服函数
+# screen 相关辅助
+#######################################
+
+SCREEN_SESSION=${SCREEN_SESSION:-terraria}
+
+send_cmd() {
+  local cmd="$1"
+  # 在 screen 会话中发送命令（回车以 CRLF 形式）
+  screen -S "$SCREEN_SESSION" -p 0 -X stuff "$cmd"$'\r' || {
+    echo "[WARN] Failed to send command to screen session: $SCREEN_SESSION"
+    return 1
+  }
+}
+
+#######################################
+# 优雅停服函数（通过 screen 注入命令）
 #######################################
 
 graceful_shutdown() {
-  echo "[INFO] Received shutdown signal, saving world..."
-  
-  # 如果 SERVER_PID 未设置，尝试自动查找
-  if [ -z "${SERVER_PID:-}" ]; then
-    SERVER_PID=$(pgrep -f 'TerrariaServer.bin.x86_64' | head -n 1 || true)
+  echo "[INFO] Received shutdown signal, saving world via screen..."
+
+  # 先通知并保存
+  send_cmd "say [Server] Shutting down, saving world..." || true
+  send_cmd "save" || true
+  sleep 5
+
+  # 触发 on-quit 保存和退出
+  send_cmd "exit" || true
+
+  # 允许一点时间让服务器退出
+  sleep 5
+
+  # 最后再执行一次备份（如果启用）
+  if [ "$ENABLE_BACKUP" = "1" ]; then
+    echo "[INFO] Creating final backup before shutdown..."
+    /usr/local/bin/backup.sh || true
   fi
-  
-  if [ -n "${SERVER_PID:-}" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
-    echo "save" > /proc/${SERVER_PID}/fd/0
-    sleep 5
-    
-    if [ "$ENABLE_BACKUP" = "1" ]; then
-      echo "[INFO] Creating final backup before shutdown..."
-      /usr/local/bin/backup.sh || true
-    fi
-    
-    # 发送 SIGTERM 给服务器进程，等待其退出
-    kill -TERM "$SERVER_PID" 2>/dev/null || true
-    wait "$SERVER_PID" 2>/dev/null || true
-  fi
+
   exit 0
 }
 
@@ -134,13 +148,14 @@ graceful_shutdown() {
 trap graceful_shutdown SIGTERM SIGINT
 
 #######################################
-# 启动服务器
+# 启动服务器（screen 会话）
 #######################################
 
-"$TERRARIA_BIN" -config "$CONFIG_FILE" &
-SERVER_PID=$!
+echo "[INFO] Starting Terraria Server in screen session: $SCREEN_SESSION"
 
-echo "[INFO] Terraria Server started with PID: $SERVER_PID"
+screen -DmS "$SCREEN_SESSION" "$TERRARIA_BIN" -config "$CONFIG_FILE"
+
+echo "[INFO] Terraria Server started in screen session: $SCREEN_SESSION"
 
 #######################################
 # 自动备份（cron，仅调用镜像内的 backup.sh）
@@ -180,10 +195,7 @@ EOF
   echo "[INFO] Automatic backup enabled: every ${BACKUP_INTERVAL} minutes"
 fi
 
-# 等待服务器进程
-# 如果收到 SIGTERM/SIGINT，wait 会被中断，trap graceful_shutdown 会被触发
-# 如果进程正常或异常退出，wait 返回，脚本正常结束
-wait "$SERVER_PID" || {
-  EXIT_CODE=$?
-  echo "[WARN] Server process exited unexpectedly with code $EXIT_CODE"
-}
+# 主进程只需保持存活，交由 screen 管理 Terraria 生命周期
+while true; do
+  sleep 3600
+done

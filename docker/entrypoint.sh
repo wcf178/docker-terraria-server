@@ -115,15 +115,11 @@ echo "  CONFIG_FILE=$CONFIG_FILE"
 
 send_cmd() {
   local cmd="$1"
-  echo "[DEBUG] Sending command to screen: $cmd"
   # 在 screen 会话中发送命令（回车以 CRLF 形式）
-  if screen -S "$SCREEN_SESSION" -p 0 -X stuff "$cmd"$'\r'; then
-    echo "[DEBUG] Command sent successfully: $cmd"
-    return 0
-  else
+  screen -S "$SCREEN_SESSION" -p 0 -X stuff "$cmd"$'\r' || {
     echo "[WARN] Failed to send command to screen session: $SCREEN_SESSION"
     return 1
-  fi
+  }
 }
 
 #######################################
@@ -134,32 +130,16 @@ graceful_shutdown() {
   echo "[INFO] Received shutdown signal, saving world via screen..."
 
   # 检查 screen 会话是否存在
-  echo "[DEBUG] Checking for screen session: $SCREEN_SESSION"
   if screen -ls | grep -q "\.${SCREEN_SESSION}[[:space:]]"; then
-    echo "[DEBUG] Screen session found, proceeding with graceful shutdown"
-
     # 先通知并保存
-    echo "[DEBUG] Sending shutdown notification..."
-    if ! send_cmd "say [Server] Shutting down, saving world..."; then
-      echo "[ERROR] Failed to send shutdown notification"
-    fi
-
-    echo "[DEBUG] Sending save command..."
-    if ! send_cmd "save"; then
-      echo "[ERROR] Failed to send save command"
-    fi
-
-    echo "[DEBUG] Waiting 5 seconds for save to complete..."
+    send_cmd "say [Server] Shutting down, saving world..." || true
+    send_cmd "save" || true
     sleep 5
 
     # 触发 on-quit 保存和退出
-    echo "[DEBUG] Sending exit command..."
-    if ! send_cmd "exit"; then
-      echo "[ERROR] Failed to send exit command"
-    fi
+    send_cmd "exit" || true
 
     # 等待服务器退出，最多等 10 秒
-    echo "[DEBUG] Waiting for server to exit..."
     local timeout=10
     while [ $timeout -gt 0 ] && screen -ls | grep -q "\.${SCREEN_SESSION}[[:space:]]"; do
       echo "[INFO] Waiting for Terraria server to exit... (${timeout}s remaining)"
@@ -167,13 +147,11 @@ graceful_shutdown() {
       timeout=$((timeout - 1))
     done
 
-    # 检查是否成功退出
+    # 如果服务器还没退出，强制杀死 screen 会话
     if screen -ls | grep -q "\.${SCREEN_SESSION}[[:space:]]"; then
-      echo "[WARN] Server didn't exit gracefully, force killing screen session..."
-      screen -S "$SCREEN_SESSION" -X quit || echo "[ERROR] Failed to kill screen session"
+      echo "[WARN] Server didn't exit gracefully, killing screen session..."
+      screen -S "$SCREEN_SESSION" -X quit || true
       sleep 2
-    else
-      echo "[DEBUG] Server exited successfully"
     fi
   else
     echo "[WARN] Screen session '$SCREEN_SESSION' not found during shutdown"
@@ -183,7 +161,7 @@ graceful_shutdown() {
   if [ "$ENABLE_BACKUP" = "1" ]; then
     echo "[INFO] Creating final backup before shutdown..."
     # 设置环境变量表示这是关闭时的备份，避免显示警告
-    SHUTDOWN_BACKUP=1 /usr/local/bin/backup.sh || echo "[ERROR] Backup failed during shutdown"
+    SHUTDOWN_BACKUP=1 /usr/local/bin/backup.sh || true
   fi
 
   echo "[INFO] Graceful shutdown completed"

@@ -273,7 +273,7 @@ echo "[INFO] Container ready. Terraria server is running in screen session '$SCR
 # 监控 screen 会话，如果会话退出则退出容器
 while screen -ls | grep -q "\.${SCREEN_SESSION}[[:space:]]"; do
   echo "[DEBUG] Screen session '$SCREEN_SESSION' is still running..."
-  sleep 5
+  sleep 60
 done
 
 echo "[INFO] Screen session '$SCREEN_SESSION' has ended"

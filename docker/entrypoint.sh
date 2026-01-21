@@ -10,8 +10,10 @@ RESTORE_LOG="/var/log/restore.log"
 # 创建日志文件
 touch "$LOG_FILE" "$BACKUP_LOG" "$RESTORE_LOG"
 
-# 重定向所有输出到日志文件，同时保留到 stdout/stderr
-exec > >(tee -a "$LOG_FILE") 2>&1
+# 日志函数
+log() {
+  echo "$(date '+%Y-%m-%d %H:%M:%S') [ENTRYPOINT] $*" | tee -a "$LOG_FILE"
+}
 
 #######################################
 # 设置 Mono 环境变量
@@ -74,11 +76,11 @@ mkdir -p "$WORLD_PATH" "$CONFIG_DIR" "$TERRARIA_ROOT" "$BACKUP_DIR"
 #######################################
 
 if [ ! -f "$TERRARIA_BIN" ]; then
-  echo "[ERROR] Terraria Server binary not found: $TERRARIA_BIN"
-  echo "[ERROR] Please ensure the Docker image was built correctly with Terraria server files."
+  log "ERROR: Terraria Server binary not found: $TERRARIA_BIN"
+  log "ERROR: Please ensure the Docker image was built correctly with Terraria server files."
   exit 1
 else
-  echo "[INFO] Terraria Server binary found: $TERRARIA_BIN"
+  log "INFO: Terraria Server binary found: $TERRARIA_BIN"
 fi
 
 #######################################
@@ -108,20 +110,20 @@ fi
 
 SCREEN_SESSION=${SCREEN_SESSION:-terraria}
 
-echo "[DEBUG] Environment variables:"
-echo "  SCREEN_SESSION=$SCREEN_SESSION"
-echo "  TERRARIA_BIN=$TERRARIA_BIN"
-echo "  CONFIG_FILE=$CONFIG_FILE"
+log "DEBUG: Environment variables:"
+log "  SCREEN_SESSION=$SCREEN_SESSION"
+log "  TERRARIA_BIN=$TERRARIA_BIN"
+log "  CONFIG_FILE=$CONFIG_FILE"
 
 send_cmd() {
   local cmd="$1"
-  echo "[DEBUG] Sending command to screen: $cmd"
+  log "DEBUG: Sending command to screen: $cmd"
   # 在 screen 会话中发送命令（回车以 CRLF 形式）
   if screen -S "$SCREEN_SESSION" -p 0 -X stuff "$cmd"$'\r'; then
-    echo "[DEBUG] Command sent successfully: $cmd"
+    log "DEBUG: Command sent successfully: $cmd"
     return 0
   else
-    echo "[WARN] Failed to send command to screen session: $SCREEN_SESSION"
+    log "WARN: Failed to send command to screen session: $SCREEN_SESSION"
     return 1
   fi
 }
@@ -131,62 +133,62 @@ send_cmd() {
 #######################################
 
 graceful_shutdown() {
-  echo "[INFO] Received shutdown signal, saving world via screen..."
+  log "INFO: Received shutdown signal, saving world via screen..."
 
   # 检查 screen 会话是否存在
-  echo "[DEBUG] Checking for screen session: $SCREEN_SESSION"
+  log "DEBUG: Checking for screen session: $SCREEN_SESSION"
   if screen -ls | grep -q "\.${SCREEN_SESSION}[[:space:]]"; then
-    echo "[DEBUG] Screen session found, proceeding with graceful shutdown"
+    log "DEBUG: Screen session found, proceeding with graceful shutdown"
 
     # 先通知并保存
-    echo "[DEBUG] Sending shutdown notification..."
+    log "DEBUG: Sending shutdown notification..."
     if ! send_cmd "say [Server] Shutting down, saving world..."; then
-      echo "[ERROR] Failed to send shutdown notification"
+      log "ERROR: Failed to send shutdown notification"
     fi
 
-    echo "[DEBUG] Sending save command..."
+    log "DEBUG: Sending save command..."
     if ! send_cmd "save"; then
-      echo "[ERROR] Failed to send save command"
+      log "ERROR: Failed to send save command"
     fi
 
-    echo "[DEBUG] Waiting 5 seconds for save to complete..."
+    log "DEBUG: Waiting 5 seconds for save to complete..."
     sleep 5
 
     # 触发 on-quit 保存和退出
-    echo "[DEBUG] Sending exit command..."
+    log "DEBUG: Sending exit command..."
     if ! send_cmd "exit"; then
-      echo "[ERROR] Failed to send exit command"
+      log "ERROR: Failed to send exit command"
     fi
 
     # 等待服务器退出，最多等 10 秒
-    echo "[DEBUG] Waiting for server to exit..."
+    log "DEBUG: Waiting for server to exit..."
     local timeout=10
     while [ $timeout -gt 0 ] && screen -ls | grep -q "\.${SCREEN_SESSION}[[:space:]]"; do
-      echo "[INFO] Waiting for Terraria server to exit... (${timeout}s remaining)"
+      log "INFO: Waiting for Terraria server to exit... (${timeout}s remaining)"
       sleep 1
       timeout=$((timeout - 1))
     done
 
     # 检查是否成功退出
     if screen -ls | grep -q "\.${SCREEN_SESSION}[[:space:]]"; then
-      echo "[WARN] Server didn't exit gracefully, force killing screen session..."
-      screen -S "$SCREEN_SESSION" -X quit || echo "[ERROR] Failed to kill screen session"
+      log "WARN: Server didn't exit gracefully, force killing screen session..."
+      screen -S "$SCREEN_SESSION" -X quit || log "ERROR: Failed to kill screen session"
       sleep 2
     else
-      echo "[DEBUG] Server exited successfully"
+      log "DEBUG: Server exited successfully"
     fi
   else
-    echo "[WARN] Screen session '$SCREEN_SESSION' not found during shutdown"
+    log "WARN: Screen session '$SCREEN_SESSION' not found during shutdown"
   fi
 
   # 最后再执行一次备份（如果启用）
   if [ "$ENABLE_BACKUP" = "1" ]; then
-    echo "[INFO] Creating final backup before shutdown..."
+    log "INFO: Creating final backup before shutdown..."
     # 设置环境变量表示这是关闭时的备份，避免显示警告
-    SHUTDOWN_BACKUP=1 /usr/local/bin/backup.sh || echo "[ERROR] Backup failed during shutdown"
+    SHUTDOWN_BACKUP=1 /usr/local/bin/backup.sh || log "ERROR: Backup failed during shutdown"
   fi
 
-  echo "[INFO] Graceful shutdown completed"
+  log "INFO: Graceful shutdown completed"
   exit 0
 }
 
@@ -197,14 +199,14 @@ trap graceful_shutdown SIGTERM SIGINT
 # 启动服务器（screen 会话）
 #######################################
 
-echo "[INFO] Starting Terraria Server in screen session: $SCREEN_SESSION"
+log "INFO: Starting Terraria Server in screen session: $SCREEN_SESSION"
 
 # 设置 Mono 环境变量（确保 Terraria 能正确运行）
 export MONO_CONFIG=/opt/terraria/monoconfig
 export MONO_PATH=/opt/terraria
 
 # 启动 screen 会话（detached），但监控其状态
-echo "[DEBUG] Executing: screen -DmS $SCREEN_SESSION $TERRARIA_BIN -config $CONFIG_FILE"
+log "DEBUG: Executing: screen -DmS $SCREEN_SESSION $TERRARIA_BIN -config $CONFIG_FILE"
 
 # 启动 screen 会话（异步，不等待）
 screen -DmS "$SCREEN_SESSION" "$TERRARIA_BIN" -config "$CONFIG_FILE" &
@@ -215,37 +217,37 @@ sleep 1
 
 # 检查 screen 进程是否还存在
 if kill -0 $SCREEN_PID 2>/dev/null; then
-  echo "[DEBUG] Screen command started successfully (PID: $SCREEN_PID)"
+  log "DEBUG: Screen command started successfully (PID: $SCREEN_PID)"
 else
-  echo "[ERROR] Screen command failed to start or exited immediately"
+  log "ERROR: Screen command failed to start or exited immediately"
   wait $SCREEN_PID 2>/dev/null || true
   exit 1
 fi
 
 # 等待两秒确保 screen 会话启动或失败
-echo "[DEBUG] Waiting for screen session to stabilize..."
+log "DEBUG: Waiting for screen session to stabilize..."
 sleep 2
 
 # 检查 screen 会话是否成功创建
 if screen -ls | grep -q "\.${SCREEN_SESSION}[[:space:]]"; then
-  echo "[INFO] Terraria Server started in screen session: $SCREEN_SESSION"
+  log "INFO: Terraria Server started in screen session: $SCREEN_SESSION"
 else
-  echo "[ERROR] Screen session '$SCREEN_SESSION' was not created or has already exited"
-  echo "[DEBUG] Checking Terraria binary: $TERRARIA_BIN"
-  ls -la "$TERRARIA_BIN" || echo "Binary not found"
-  echo "[DEBUG] Checking config file: $CONFIG_FILE"
-  ls -la "$CONFIG_FILE" || echo "Config not found"
-  cat "$CONFIG_FILE" 2>/dev/null || echo "Cannot read config file"
-  echo "[DEBUG] Checking Mono environment:"
-  echo "MONO_CONFIG=$MONO_CONFIG"
-  echo "MONO_PATH=$MONO_PATH"
-  echo "[DEBUG] Checking Mono installation:"
-  which mono || echo "mono not found in PATH"
-  mono --version 2>/dev/null || echo "mono command failed"
-  echo "[DEBUG] Current screen sessions:"
-  screen -ls || echo "screen command failed"
-  echo "[DEBUG] Trying to run Terraria directly for 5 seconds..."
-  timeout 5s "$TERRARIA_BIN" -config "$CONFIG_FILE" || echo "Terraria direct run failed"
+  log "ERROR: Screen session '$SCREEN_SESSION' was not created or has already exited"
+  log "DEBUG: Checking Terraria binary: $TERRARIA_BIN"
+  ls -la "$TERRARIA_BIN" || log "Binary not found"
+  log "DEBUG: Checking config file: $CONFIG_FILE"
+  ls -la "$CONFIG_FILE" || log "Config not found"
+  cat "$CONFIG_FILE" 2>/dev/null || log "Cannot read config file"
+  log "DEBUG: Checking Mono environment:"
+  log "MONO_CONFIG=$MONO_CONFIG"
+  log "MONO_PATH=$MONO_PATH"
+  log "DEBUG: Checking Mono installation:"
+  which mono || log "mono not found in PATH"
+  mono --version 2>/dev/null || log "mono command failed"
+  log "DEBUG: Current screen sessions:"
+  screen -ls || log "screen command failed"
+  log "DEBUG: Trying to run Terraria directly for 5 seconds..."
+  timeout 5s "$TERRARIA_BIN" -config "$CONFIG_FILE" || log "Terraria direct run failed"
   exit 1
 fi
 
@@ -253,7 +255,7 @@ fi
 # 自动备份（cron，仅调用镜像内的 backup.sh）
 #######################################
 
-echo "[DEBUG] ENABLE_BACKUP=$ENABLE_BACKUP, BACKUP_INTERVAL=$BACKUP_INTERVAL"
+log "DEBUG: ENABLE_BACKUP=$ENABLE_BACKUP, BACKUP_INTERVAL=$BACKUP_INTERVAL"
 
 if [ "$ENABLE_BACKUP" = "1" ]; then
 
@@ -286,17 +288,17 @@ EOF
   # 启动 cron 服务（后台运行）
   cron
 
-  echo "[INFO] Automatic backup enabled: every ${BACKUP_INTERVAL} minutes"
+  log "INFO: Automatic backup enabled: every ${BACKUP_INTERVAL} minutes"
 fi
 
 # 主进程监控 screen 会话状态，交由 trap 处理 SIGTERM
-echo "[INFO] Container ready. Terraria server is running in screen session '$SCREEN_SESSION'"
+log "INFO: Container ready. Terraria server is running in screen session '$SCREEN_SESSION'"
 
 # 监控 screen 会话，如果会话退出则退出容器
 while screen -ls | grep -q "\.${SCREEN_SESSION}[[:space:]]"; do
-  echo "[DEBUG] Screen session '$SCREEN_SESSION' is still running..."
-  sleep 10
+  # log "DEBUG: Screen session '$SCREEN_SESSION' is still running..."
+  sleep 5
 done
 
-echo "[INFO] Screen session '$SCREEN_SESSION' has ended"
+log "INFO: Screen session '$SCREEN_SESSION' has ended"
 exit 0

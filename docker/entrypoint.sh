@@ -58,27 +58,15 @@ fi
 mkdir -p "$WORLD_PATH" "$CONFIG_DIR" "$TERRARIA_ROOT" "$BACKUP_DIR"
 
 #######################################
-# 自动下载 Terraria Server
+# 检查 Terraria Server（应该在构建时已下载）
 #######################################
 
-DOWNLOAD_URL="https://terraria.org/api/download/pc-dedicated-server/terraria-server-${TERRARIA_VERSION}.zip"
-TMP_DIR=/tmp/terraria-server
-
 if [ ! -f "$TERRARIA_BIN" ]; then
-  echo "[INFO] Downloading Terraria Server v${TERRARIA_VERSION}..."
-
-  rm -rf "$TMP_DIR"
-  mkdir -p "$TMP_DIR"
-
-  curl -fL "$DOWNLOAD_URL" -o "$TMP_DIR/server.zip"
-  unzip -q "$TMP_DIR/server.zip" -d "$TMP_DIR"
-
-  cp "$TMP_DIR/${TERRARIA_VERSION}/Linux/TerrariaServer.bin.x86_64" "$TERRARIA_BIN"
-  chmod +x "$TERRARIA_BIN"
-
-  echo "[INFO] Terraria Server installed."
+  echo "[ERROR] Terraria Server binary not found: $TERRARIA_BIN"
+  echo "[ERROR] Please ensure the Docker image was built correctly with Terraria server files."
+  exit 1
 else
-  echo "[INFO] Terraria Server already exists, skipping download."
+  echo "[INFO] Terraria Server binary found: $TERRARIA_BIN"
 fi
 
 #######################################
@@ -107,6 +95,11 @@ fi
 #######################################
 
 SCREEN_SESSION=${SCREEN_SESSION:-terraria}
+
+echo "[DEBUG] Environment variables:"
+echo "  SCREEN_SESSION=$SCREEN_SESSION"
+echo "  TERRARIA_BIN=$TERRARIA_BIN"
+echo "  CONFIG_FILE=$CONFIG_FILE"
 
 send_cmd() {
   local cmd="$1"
@@ -171,6 +164,10 @@ trap graceful_shutdown SIGTERM SIGINT
 
 echo "[INFO] Starting Terraria Server in screen session: $SCREEN_SESSION"
 
+# 设置 Mono 环境变量（确保 Terraria 能正确运行）
+export MONO_CONFIG=/opt/terraria/monoconfig
+export MONO_PATH=/opt/terraria
+
 # 启动 screen 会话（detached），但监控其状态
 screen -DmS "$SCREEN_SESSION" "$TERRARIA_BIN" -config "$CONFIG_FILE"
 
@@ -182,12 +179,21 @@ if screen -ls | grep -q "\.${SCREEN_SESSION}[[:space:]]"; then
   echo "[INFO] Terraria Server started in screen session: $SCREEN_SESSION"
 else
   echo "[ERROR] Failed to create screen session: $SCREEN_SESSION"
+  echo "[DEBUG] Checking Terraria binary: $TERRARIA_BIN"
+  ls -la "$TERRARIA_BIN" || echo "Binary not found"
+  echo "[DEBUG] Checking config file: $CONFIG_FILE"
+  ls -la "$CONFIG_FILE" || echo "Config not found"
+  echo "[DEBUG] Checking Mono environment:"
+  echo "MONO_CONFIG=$MONO_CONFIG"
+  echo "MONO_PATH=$MONO_PATH"
   exit 1
 fi
 
 #######################################
 # 自动备份（cron，仅调用镜像内的 backup.sh）
 #######################################
+
+echo "[DEBUG] ENABLE_BACKUP=$ENABLE_BACKUP, BACKUP_INTERVAL=$BACKUP_INTERVAL"
 
 if [ "$ENABLE_BACKUP" = "1" ]; then
 

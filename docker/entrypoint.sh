@@ -116,25 +116,12 @@ echo "  CONFIG_FILE=$CONFIG_FILE"
 send_cmd() {
   local cmd="$1"
   echo "[DEBUG] Sending command to screen: $cmd"
-
-  # 先检查screen会话状态
-  echo "[DEBUG] Current screen sessions:"
-  screen -ls || echo "[DEBUG] screen -ls failed"
-
-  # 检查会话是否还有窗口
-  if ! screen -S "$SCREEN_SESSION" -Q windows >/dev/null 2>&1; then
-    echo "[WARN] Screen session has no windows or is inaccessible"
-    return 1
-  fi
-
-  # 发送命令到screen会话（不指定窗口，让screen选择默认窗口）
-  if screen -S "$SCREEN_SESSION" -X stuff "$cmd"$'\r'; then
+  # 在 screen 会话中发送命令（回车以 CRLF 形式）
+  if screen -S "$SCREEN_SESSION" -p 0 -X stuff "$cmd"$'\r'; then
     echo "[DEBUG] Command sent successfully: $cmd"
-    # 短暂等待命令处理
-    sleep 0.1
     return 0
   else
-    echo "[ERROR] Failed to send command to screen session: $SCREEN_SESSION"
+    echo "[WARN] Failed to send command to screen session: $SCREEN_SESSION"
     return 1
   fi
 }
@@ -151,70 +138,45 @@ graceful_shutdown() {
   if screen -ls | grep -q "\.${SCREEN_SESSION}[[:space:]]"; then
     echo "[DEBUG] Screen session found, proceeding with graceful shutdown"
 
-    # 增加额外等待，确保服务器处于稳定状态
-    echo "[DEBUG] Waiting 2 seconds for server stabilization..."
-    sleep 2
-
-    # 先通知玩家
+    # 先通知并保存
     echo "[DEBUG] Sending shutdown notification..."
-    if ! send_cmd "say [Server] Shutting down in 10 seconds, saving world..."; then
-      echo "[ERROR] Failed to send shutdown notification, continuing anyway..."
+    if ! send_cmd "say [Server] Shutting down, saving world..."; then
+      echo "[ERROR] Failed to send shutdown notification"
     fi
 
-    # 等待通知显示
-    sleep 2
-
-    # 发送保存命令
     echo "[DEBUG] Sending save command..."
     if ! send_cmd "save"; then
-      echo "[ERROR] Failed to send save command, trying exit anyway..."
+      echo "[ERROR] Failed to send save command"
     fi
 
-    # 等待更长时间确保保存完成
-    echo "[DEBUG] Waiting 8 seconds for save to complete..."
-    sleep 8
+    echo "[DEBUG] Waiting 5 seconds for save to complete..."
+    sleep 5
 
-    # 再次通知并退出
-    echo "[DEBUG] Sending final notification and exit command..."
-    send_cmd "say [Server] Server shutting down now..." || echo "[WARN] Final notification failed"
-    sleep 1
-
+    # 触发 on-quit 保存和退出
+    echo "[DEBUG] Sending exit command..."
     if ! send_cmd "exit"; then
-      echo "[ERROR] Failed to send exit command, force killing..."
-      screen -S "$SCREEN_SESSION" -X quit || echo "[ERROR] Failed to kill screen session"
-      sleep 3
-      return
+      echo "[ERROR] Failed to send exit command"
     fi
 
-    # 等待服务器退出，最多等 15 秒（增加等待时间）
+    # 等待服务器退出，最多等 10 秒
     echo "[DEBUG] Waiting for server to exit..."
-    local timeout=15
+    local timeout=10
     while [ $timeout -gt 0 ] && screen -ls | grep -q "\.${SCREEN_SESSION}[[:space:]]"; do
       echo "[INFO] Waiting for Terraria server to exit... (${timeout}s remaining)"
       sleep 1
       timeout=$((timeout - 1))
     done
 
-    # 最终检查和强制清理
+    # 检查是否成功退出
     if screen -ls | grep -q "\.${SCREEN_SESSION}[[:space:]]"; then
       echo "[WARN] Server didn't exit gracefully, force killing screen session..."
       screen -S "$SCREEN_SESSION" -X quit || echo "[ERROR] Failed to kill screen session"
-      sleep 3
-
-      # 如果还是存在，尝试更激进的方法
-      if screen -ls | grep -q "\.${SCREEN_SESSION}[[:space:]]"; then
-        echo "[ERROR] Screen session still exists, trying to kill all related processes..."
-        pkill -f "screen.*$SCREEN_SESSION" || true
-        pkill -f "TerrariaServer" || true
-        sleep 2
-      fi
+      sleep 2
     else
       echo "[DEBUG] Server exited successfully"
     fi
   else
     echo "[WARN] Screen session '$SCREEN_SESSION' not found during shutdown"
-    # 即使没有screen会话，也尝试清理可能的残留进程
-    pkill -f "TerrariaServer" || true
   fi
 
   # 最后再执行一次备份（如果启用）
@@ -333,7 +295,7 @@ echo "[INFO] Container ready. Terraria server is running in screen session '$SCR
 # 监控 screen 会话，如果会话退出则退出容器
 while screen -ls | grep -q "\.${SCREEN_SESSION}[[:space:]]"; do
   echo "[DEBUG] Screen session '$SCREEN_SESSION' is still running..."
-  sleep 60
+  sleep 10
 done
 
 echo "[INFO] Screen session '$SCREEN_SESSION' has ended"

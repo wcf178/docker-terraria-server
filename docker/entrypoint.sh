@@ -298,17 +298,38 @@ log "INFO: Container ready. Terraria server is running in screen session '$SCREE
 # 多次尝试，因为进程可能需要一点时间启动
 log "DEBUG: Looking for Terraria server process..."
 for i in {1..5}; do
-  TERRARIA_PID=$(pgrep -f 'TerrariaServer.bin.x86_64' || true)
-  if [ -n "$TERRARIA_PID" ]; then
-    break
+  # 查找所有匹配的进程
+  ALL_PIDS=$(pgrep -f 'TerrariaServer.bin.x86_64' || true)
+  if [ -n "$ALL_PIDS" ]; then
+    log "DEBUG: Found matching PIDs: $ALL_PIDS"
+    
+    # 显示所有匹配进程的详细信息
+    log "DEBUG: Process details for all matches:"
+    echo "$ALL_PIDS" | while read pid; do
+      if [ -n "$pid" ]; then
+        PROC_INFO=$(ps -p $pid -o pid,ppid,comm,args --no-headers 2>/dev/null || echo "Unable to get info for PID $pid")
+        log "DEBUG:   PID $pid: $PROC_INFO"
+      fi
+    done
+    
+    # 选择正确的进程：排除 screen 命令本身，只保留实际的 TerrariaServer 进程
+    # 方法1：选择 comm 列为 TerrariaServer.bin.x86_64 的进程（不是 screen）
+    TERRARIA_PID=$(ps -o pid,comm -p $ALL_PIDS --no-headers 2>/dev/null | grep 'TerrariaServer.bin.x86_64' | awk '{print $1}' | head -n 1 || true)
+    
+    if [ -n "$TERRARIA_PID" ]; then
+      log "DEBUG: Selected Terraria server PID: $TERRARIA_PID"
+      break
+    fi
   fi
+  
   log "DEBUG: Attempt $i/5: Terraria process not found yet, waiting..."
   sleep 1
 done
 
 if [ -n "$TERRARIA_PID" ]; then
   log "INFO: Found Terraria server process (PID: $TERRARIA_PID)"
-  log "DEBUG: Process details: $(ps -p $TERRARIA_PID -o pid,ppid,comm,args --no-headers || true)"
+  PROC_DETAILS=$(ps -p $TERRARIA_PID -o pid,ppid,comm,args --no-headers 2>/dev/null || echo 'Unable to get process details')
+  log "INFO: Process details: $PROC_DETAILS"
   
   # 使用 tail --pid 等待进程结束
   # tail 会在 TERRARIA_PID 退出后自动退出，比 while 循环更高效
@@ -318,11 +339,14 @@ if [ -n "$TERRARIA_PID" ]; then
   
   # 等待 tail 进程（即等待 Terraria 进程结束）
   # 如果收到 SIGTERM，wait 会被中断，trap 会处理优雅关闭
-  wait $TAIL_PID
+  wait $TAIL_PID 2>/dev/null || {
+    EXIT_CODE=$?
+    log "WARN: Wait command exited with code $EXIT_CODE"
+  }
 else
   log "ERROR: Terraria server process not found after 5 attempts"
-  log "DEBUG: All running processes:"
-  ps aux || true
+  log "DEBUG: All running processes containing 'terraria':"
+  ps aux | grep -i terraria || true
   log "DEBUG: Screen sessions:"
   screen -ls || true
   exit 1

@@ -22,3 +22,7 @@ services:
 
     stdin_open: true
     tty: true
+    
+    # 优雅关闭配置：确保 docker compose down 时能完整保存世界
+    stop_signal: SIGTERM        # 明确指定停止信号（默认也是 SIGTERM）
+    stop_grace_period: 30s      # 给容器 30 秒时间优雅关闭（默认 10 秒）

@@ -294,11 +294,39 @@ fi
 # 主进程监控 screen 会话状态，交由 trap 处理 SIGTERM
 log "INFO: Container ready. Terraria server is running in screen session '$SCREEN_SESSION'"
 
-# 监控 screen 会话，如果会话退出则退出容器
-while screen -ls | grep -q "\.${SCREEN_SESSION}[[:space:]]"; do
-  # log "DEBUG: Screen session '$SCREEN_SESSION' is still running..."
-  sleep 5
+# 获取 Terraria 服务器进程 PID（即使在 screen 中运行，pgrep 也能找到）
+# 多次尝试，因为进程可能需要一点时间启动
+log "DEBUG: Looking for Terraria server process..."
+for i in {1..5}; do
+  TERRARIA_PID=$(pgrep -f 'TerrariaServer.bin.x86_64' || true)
+  if [ -n "$TERRARIA_PID" ]; then
+    break
+  fi
+  log "DEBUG: Attempt $i/5: Terraria process not found yet, waiting..."
+  sleep 1
 done
 
-log "INFO: Screen session '$SCREEN_SESSION' has ended"
+if [ -n "$TERRARIA_PID" ]; then
+  log "INFO: Found Terraria server process (PID: $TERRARIA_PID)"
+  log "DEBUG: Process details: $(ps -p $TERRARIA_PID -o pid,ppid,comm,args --no-headers || true)"
+  
+  # 使用 tail --pid 等待进程结束
+  # tail 会在 TERRARIA_PID 退出后自动退出，比 while 循环更高效
+  # 这种方法不占用 CPU，并且能被 SIGTERM 中断
+  tail -f /dev/null --pid="$TERRARIA_PID" &
+  TAIL_PID=$!
+  
+  # 等待 tail 进程（即等待 Terraria 进程结束）
+  # 如果收到 SIGTERM，wait 会被中断，trap 会处理优雅关闭
+  wait $TAIL_PID
+else
+  log "ERROR: Terraria server process not found after 5 attempts"
+  log "DEBUG: All running processes:"
+  ps aux || true
+  log "DEBUG: Screen sessions:"
+  screen -ls || true
+  exit 1
+fi
+
+log "INFO: Terraria server has ended"
 exit 0

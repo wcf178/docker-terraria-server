@@ -297,6 +297,8 @@ log "INFO: Container ready. Terraria server is running in screen session '$SCREE
 # 获取 Terraria 服务器进程 PID（即使在 screen 中运行，pgrep 也能找到）
 # 多次尝试，因为进程可能需要一点时间启动
 log "DEBUG: Looking for Terraria server process..."
+log "DEBUG: Screen process PID is: $SCREEN_PID"
+
 for i in {1..5}; do
   # 查找所有匹配的进程
   ALL_PIDS=$(pgrep -f 'TerrariaServer.bin.x86_64' || true)
@@ -312,12 +314,12 @@ for i in {1..5}; do
       fi
     done
     
-    # 选择正确的进程：排除 screen 命令本身，只保留实际的 TerrariaServer 进程
-    # 方法1：选择 comm 列为 TerrariaServer.bin.x86_64 的进程（不是 screen）
-    TERRARIA_PID=$(ps -o pid,comm -p $ALL_PIDS --no-headers 2>/dev/null | grep 'TerrariaServer.bin.x86_64' | awk '{print $1}' | head -n 1 || true)
+    # 选择正确的进程：找到 PPID 等于 SCREEN_PID 的进程（即 screen 的子进程）
+    # 这样可以准确找到 Terraria 服务器进程，而不是 screen 进程本身
+    TERRARIA_PID=$(ps -o pid,ppid --no-headers -p $ALL_PIDS 2>/dev/null | awk -v screen_pid="$SCREEN_PID" '$2 == screen_pid {print $1}' | head -n 1 || true)
     
     if [ -n "$TERRARIA_PID" ]; then
-      log "DEBUG: Selected Terraria server PID: $TERRARIA_PID"
+      log "DEBUG: Selected Terraria server PID: $TERRARIA_PID (child of screen PID: $SCREEN_PID)"
       break
     fi
   fi

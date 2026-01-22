@@ -5,6 +5,8 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
+      args:
+        - USE_LOCAL_FILES=${USE_LOCAL_FILES:-0}
     container_name: terraria-server
     restart: unless-stopped
 

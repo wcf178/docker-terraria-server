@@ -7,7 +7,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Terraria 版本（构建时下载）
 #######################################
 ARG TERRARIA_VERSION=1449
+ARG USE_LOCAL_FILES=0
 ENV TERRARIA_VERSION=${TERRARIA_VERSION}
+ENV USE_LOCAL_FILES=${USE_LOCAL_FILES}
 
 #######################################
 # APT 源（Debian 12 slim 适配）
@@ -50,7 +52,6 @@ WORKDIR /opt/terraria
 #######################################
 RUN set -eux; \
   mkdir -p /opt/terraria; \
-  USE_LOCAL_FILES=${USE_LOCAL_FILES:-0}; \
   \
   if [ "$USE_LOCAL_FILES" = "1" ] && [ -d "/build-context/docker/terraria-server" ]; then \
     echo "[BUILD] USE_LOCAL_FILES=1: Using local Terraria Server files from docker/terraria-server"; \

@@ -46,7 +46,7 @@ cd docker-terraria-server
 ### 2. 配置环境
 
 ```bash
-cp .env.example .env
+cp env.example .env
 ```
 
 编辑 `.env` 文件，设置您的世界名称、密码和其他偏好。

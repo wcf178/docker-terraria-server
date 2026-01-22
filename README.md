@@ -46,7 +46,7 @@ cd docker-terraria-server
 ### 2. Configure Environment
 
 ```bash
-cp .env.example .env
+cp env.example .env
 ```
 
 Edit `.env` to set your world name, password, and other preferences.

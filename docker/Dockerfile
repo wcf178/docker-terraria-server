@@ -50,17 +50,19 @@ WORKDIR /opt/terraria
 #######################################
 # 预下载 Terraria Server 可执行文件
 #######################################
+
+COPY docker/terraria-server/ /opt/terraria-local/
+
 RUN set -eux; \
   mkdir -p /opt/terraria; \
-  \
-  if [ "$USE_LOCAL_FILES" = "1" ]; then \
-    echo "[BUILD] USE_LOCAL_FILES=1: Using local Terraria Server files from docker/terraria-server"; \
-    cp -r /build-context/docker/terraria-server/. /opt/terraria/; \
+  if [ "$USE_LOCAL_FILES" = "1" ] && [ -f /opt/terraria-local/TerrariaServer.bin.x86_64 ]; then \
+    echo "[BUILD] Using local Terraria Server files"; \
+    cp -r /opt/terraria-local/. /opt/terraria/; \
   else \
     DOWNLOAD_URL="https://terraria.org/api/download/pc-dedicated-server/terraria-server-${TERRARIA_VERSION}.zip"; \
     TMP_DIR=/tmp/terraria-server; \
     mkdir -p "${TMP_DIR}"; \
-    echo "[BUILD] Downloading Terraria Server v${TERRARIA_VERSION} from ${DOWNLOAD_URL}"; \
+    echo "[BUILD] Downloading Terraria Server v${TERRARIA_VERSION}"; \
     curl -fL "${DOWNLOAD_URL}" -o "${TMP_DIR}/server.zip"; \
     unzip -q "${TMP_DIR}/server.zip" -d "${TMP_DIR}"; \
     cp -r "${TMP_DIR}/${TERRARIA_VERSION}/Linux/." /opt/terraria/; \

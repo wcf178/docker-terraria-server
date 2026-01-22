@@ -49,15 +49,22 @@ WORKDIR /opt/terraria
 # 预下载 Terraria Server 可执行文件
 #######################################
 RUN set -eux; \
-  DOWNLOAD_URL="https://terraria.org/api/download/pc-dedicated-server/terraria-server-${TERRARIA_VERSION}.zip"; \
-  TMP_DIR=/tmp/terraria-server; \
-  mkdir -p "${TMP_DIR}" /opt/terraria; \
-  echo "[BUILD] Downloading Terraria Server v${TERRARIA_VERSION} from ${DOWNLOAD_URL}"; \
-  curl -fL "${DOWNLOAD_URL}" -o "${TMP_DIR}/server.zip"; \
-  unzip -q "${TMP_DIR}/server.zip" -d "${TMP_DIR}"; \
-  cp -r "${TMP_DIR}/${TERRARIA_VERSION}/Linux/." /opt/terraria/; \
-  chmod +x /opt/terraria/TerrariaServer.bin.x86_64; \
-  rm -rf "${TMP_DIR}"
+  mkdir -p /opt/terraria; \
+  if [ -d "/build-context/docker/terraria-server" ]; then \
+    echo "[BUILD] Using local Terraria Server files from docker/terraria-server"; \
+    cp -r /build-context/docker/terraria-server/. /opt/terraria/; \
+  else \
+    echo "[BUILD] Local Terraria Server files not found, downloading from official source"; \
+    DOWNLOAD_URL="https://terraria.org/api/download/pc-dedicated-server/terraria-server-${TERRARIA_VERSION}.zip"; \
+    TMP_DIR=/tmp/terraria-server; \
+    mkdir -p "${TMP_DIR}"; \
+    echo "[BUILD] Downloading Terraria Server v${TERRARIA_VERSION} from ${DOWNLOAD_URL}"; \
+    curl -fL "${DOWNLOAD_URL}" -o "${TMP_DIR}/server.zip"; \
+    unzip -q "${TMP_DIR}/server.zip" -d "${TMP_DIR}"; \
+    cp -r "${TMP_DIR}/${TERRARIA_VERSION}/Linux/." /opt/terraria/; \
+    rm -rf "${TMP_DIR}"; \
+  fi; \
+  chmod +x /opt/terraria/TerrariaServer.bin.x86_64
 
 #######################################
 # Entrypoint

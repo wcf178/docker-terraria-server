@@ -37,6 +37,7 @@ RUN apt-get update \
        libicu72 \
        cron \
        screen \
+       netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
 #######################################

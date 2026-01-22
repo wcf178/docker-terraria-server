@@ -28,8 +28,8 @@ export MONO_PATH=/opt/terraria
 TZ=${TZ:-Asia/Shanghai}
 
 WORLD_NAME=${WORLD_NAME:-world}
-WORLD_PATH=${WORLD_PATH:-/worlds}
-WORLD_FILE="${WORLD_PATH}/${WORLD_NAME}.wld"
+WORLD_PATH=${CONTAINER_WORLD_PATH:-/worlds}
+WORLD_FILE="${CONTAINER_WORLD_PATH}/${WORLD_NAME}.wld"
 
 AUTO_CREATE=${AUTO_CREATE:-1}
 WORLD_SIZE=${WORLD_SIZE:-2}
@@ -42,19 +42,18 @@ SERVER_PASSWORD=${SERVER_PASSWORD:-}
 LANGUAGE=${LANGUAGE:-en-US}
 
 AUTOSAVE=${AUTOSAVE:-1}
-SAVEONQUIT=${SAVEONQUIT:-1}
 
 TERRARIA_VERSION=${TERRARIA_VERSION:-1449}
 TERRARIA_ROOT=/opt/terraria
 TERRARIA_BIN=${TERRARIA_ROOT}/TerrariaServer.bin.x86_64
 
-CONFIG_DIR=/config
-CONFIG_FILE=${CONFIG_DIR}/server.conf
+CONFIG_DIR=${CONTAINER_CONFIG_DIR:-/config}
+CONFIG_FILE=${CONTAINER_CONFIG_DIR:-/config}/server.conf
 
 ENABLE_BACKUP=${ENABLE_BACKUP:-1}
 BACKUP_INTERVAL=${BACKUP_INTERVAL:-30}
 BACKUP_RETAIN=${BACKUP_RETAIN:-10}
-BACKUP_DIR=${BACKUP_DIR:-/backups}
+BACKUP_DIR=${CONTAINER_BACKUP_DIR:-/backups}
 
 #######################################
 # 时区设置
@@ -69,7 +68,7 @@ fi
 # 创建必要目录
 #######################################
 
-mkdir -p "$WORLD_PATH" "$CONFIG_DIR" "$TERRARIA_ROOT" "$BACKUP_DIR"
+mkdir -p "$CONTAINER_WORLD_PATH" "$CONTAINER_CONFIG_DIR" "$TERRARIA_ROOT" "$CONTAINER_BACKUP_DIR"
 
 #######################################
 # 检查 Terraria Server（应该在构建时已下载）
@@ -97,7 +96,6 @@ port=$SERVER_PORT
 maxplayers=$MAX_PLAYERS
 language=$LANGUAGE
 autosave=$AUTOSAVE
-saveonquit=$SAVEONQUIT
 EOF
 
   [ -n "$SERVER_PASSWORD" ] && echo "password=$SERVER_PASSWORD" >> "$CONFIG_FILE"
@@ -269,8 +267,8 @@ if [ "$ENABLE_BACKUP" = "1" ]; then
 #!/usr/bin/env bash
 # Cron wrapper for backup.sh with environment variables
 export WORLD_NAME="${WORLD_NAME}"
-export WORLD_PATH="${WORLD_PATH}"
-export BACKUP_DIR="${BACKUP_DIR}"
+export WORLD_PATH="${CONTAINER_WORLD_PATH}"
+export BACKUP_DIR="${CONTAINER_BACKUP_DIR}"
 export BACKUP_RETAIN=${BACKUP_RETAIN}
 export BACKUP_INTERVAL=${BACKUP_INTERVAL}
 # SERVER_PID 留空，backup.sh 会自动查找 Terraria 进程

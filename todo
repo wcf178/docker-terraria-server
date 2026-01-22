@@ -3,20 +3,5 @@
 [] 多世界 / 多 profile
 [] TShock / ModLoader
 [] Web 管理面板
-[] 自动备份（cron + tar.gz，零侵入）
+[x] 自动备份（cron + tar.gz，零侵入）
 [x] 灾难恢复（恢复备份）
-[] 容器第一次创建世界的时候显示输出
-
-
-bugs:
-[x] 备份没有输出提示信息到游戏内
-[] docker compose down 没有自动保存世界
-[x] 定时任务无法执行
-[] docker compose down之前保存后 重新 docker compose up -d 启动还是不知道什么时候的世界
-    [root@CentOS docker-terraria-server]# ll worlds/
-        total 8792
-        -rw-r--r-- 1 root root 3001520 Jan 21 02:01 world.wld
-        -rw-r--r-- 1 root root 2998286 Jan 21 02:01 world.wld.bak
-        -rw-r--r-- 1 root root 2994326 Jan 21 01:51 world.wld.bak2
-        -rw-r--r-- 1 root root       0 Jan 19 23:02 world.wld.example
-    宿主机的worlds文件夹世界没有更新 所以每次创建容器都会恢复到 2点的世界

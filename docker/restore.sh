@@ -13,8 +13,8 @@ log() {
 # 基础变量
 #######################################
 
-WORLD_DIR=${WORLD_PATH:-/worlds}
-BACKUP_DIR=${BACKUP_DIR:-/backups}
+WORLD_DIR=${CONTAINER_WORLD_PATH:-/worlds}
+BACKUP_DIR=${CONTAINER_BACKUP_DIR:-/backups}
 WORLD_NAME=${WORLD_NAME:-world}
 
 #######################################
@@ -29,7 +29,7 @@ if [ $# -ne 1 ]; then
 fi
 
 BACKUP_FILE="$1"
-BACKUP_PATH="${BACKUP_DIR}/${BACKUP_FILE}"
+BACKUP_PATH="${CONTAINER_BACKUP_DIR}/${BACKUP_FILE}"
 
 #######################################
 # 安全检查
@@ -52,7 +52,7 @@ fi
 #######################################
 
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-SAFETY_BACKUP="${BACKUP_DIR}/${WORLD_NAME}_pre_restore_${TIMESTAMP}.tar.gz"
+SAFETY_BACKUP="${CONTAINER_BACKUP_DIR}/${WORLD_NAME}_pre_restore_${TIMESTAMP}.tar.gz"
 
 log "[INFO] Creating safety backup: $SAFETY_BACKUP"
 tar -czf "$SAFETY_BACKUP" "$WORLD_DIR"

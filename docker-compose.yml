@@ -15,10 +15,10 @@ services:
       - "${SERVER_PORT:-7777}:7777"
 
     volumes:
-      - ./worlds:/worlds
-      - ./config:/config
-      - ./backups:/backups
-      - ./logs:/var/log
+      - ${WORLD_PATH:-./worlds}:${CONTAINER_WORLD_PATH:-/worlds}
+      - ${CONFIG_DIR:-./config}:${CONTAINER_CONFIG_DIR:-/config}
+      - ${BACKUP_DIR:-./backups}:${CONTAINER_BACKUP_DIR:-/backups}
+      - ${LOGS_DIR:-./logs}:/var/log
 
     stdin_open: true
     tty: true
@@ -26,3 +26,10 @@ services:
     # 优雅关闭配置：确保 docker compose down 时能完整保存世界
     stop_signal: SIGTERM        # 明确指定停止信号（默认也是 SIGTERM）
     stop_grace_period: 30s      # 给容器 30 秒时间优雅关闭（默认 10 秒）
+
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 7777 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s

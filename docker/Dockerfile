@@ -53,13 +53,10 @@ WORKDIR /opt/terraria
 RUN set -eux; \
   mkdir -p /opt/terraria; \
   \
-  if [ "$USE_LOCAL_FILES" = "1" ] && [ -d "/build-context/docker/terraria-server" ]; then \
+  if [ "$USE_LOCAL_FILES" = "1" ]; then \
     echo "[BUILD] USE_LOCAL_FILES=1: Using local Terraria Server files from docker/terraria-server"; \
     cp -r /build-context/docker/terraria-server/. /opt/terraria/; \
   else \
-    if [ "$USE_LOCAL_FILES" = "1" ]; then \
-      echo "[BUILD] USE_LOCAL_FILES=1 but docker/terraria-server directory not found, falling back to download"; \
-    fi; \
     DOWNLOAD_URL="https://terraria.org/api/download/pc-dedicated-server/terraria-server-${TERRARIA_VERSION}.zip"; \
     TMP_DIR=/tmp/terraria-server; \
     mkdir -p "${TMP_DIR}"; \

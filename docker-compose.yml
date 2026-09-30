@@ -6,13 +6,18 @@ services:
       context: .
       dockerfile: docker/Dockerfile
       args:
-        - USE_LOCAL_FILES=${USE_LOCAL_FILES:-0}
+        USE_LOCAL_FILES: ${USE_LOCAL_FILES:-0}
+        TERRARIA_VERSION: ${TERRARIA_VERSION:-1449}
     container_name: terraria-server
     restart: unless-stopped
 
     env_file:
       - .env
 
+    # 多世界模式说明:
+    # 当 MULTI_WORLD_MODE=1 时，每个世界使用独立的端口
+    # 需要根据具体世界的配置来映射端口，或者映射所有可能用到的端口
+    # 例如: ports: - "7777-7785:7777-7785" 或者为每个世界单独映射
     ports:
       - "${SERVER_PORT:-7777}:7777"
 
@@ -24,7 +29,7 @@ services:
 
     stdin_open: true
     tty: true
-    
+
     # 优雅关闭配置：确保 docker compose down 时能完整保存世界
     stop_signal: SIGTERM        # 明确指定停止信号（默认也是 SIGTERM）
     stop_grace_period: 30s      # 给容器 30 秒时间优雅关闭（默认 10 秒）
@@ -35,3 +40,23 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    container_name: terraria-dashboard
+    restart: unless-stopped
+    environment:
+      TERRARIA_CONTAINER: terraria-server
+      MULTI_WORLD_MODE: ${MULTI_WORLD_MODE:-0}
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:-}
+      DASHBOARD_SECRET: ${DASHBOARD_SECRET:-}
+    ports:
+      - "${DASHBOARD_BIND:-127.0.0.1}:${DASHBOARD_PORT:-8080}:8080"
+    volumes:
+      - ${WORLD_PATH:-./worlds}:/worlds
+      - ${CONFIG_DIR:-./config}:/config
+      - ${BACKUP_DIR:-./backups}:/backups
+      - ${LOGS_DIR:-./logs}:/logs:ro
+      - /var/run/docker.sock:/var/run/docker.sock

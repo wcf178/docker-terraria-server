@@ -89,6 +89,12 @@ COPY docker/restore.sh /usr/local/bin/restore.sh
 RUN chmod +x /usr/local/bin/restore.sh
 
 #######################################
+# multi-world management script
+#######################################
+COPY docker/manage-worlds.sh /usr/local/bin/manage-worlds.sh
+RUN chmod +x /usr/local/bin/manage-worlds.sh
+
+#######################################
 # 数据目录
 #######################################
 RUN mkdir -p /worlds /config

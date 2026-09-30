@@ -9,8 +9,15 @@ log() {
   echo "$(date '+%Y-%m-%d %H:%M:%S') [BACKUP] $*" | tee -a "$LOG_FILE"
 }
 
+WORLD_DIR=${CONTAINER_WORLD_PATH:-/worlds}
+BACKUP_DIR=${CONTAINER_BACKUP_DIR:-/backups}
+WORLD_NAME=${WORLD_NAME:-world}
+BACKUP_RETAIN=${BACKUP_RETAIN:-10}
+
+mkdir -p "$BACKUP_DIR"
+
 TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
-BACKUP_FILE="${CONTAINER_BACKUP_DIR}/${WORLD_NAME}-${TIMESTAMP}.tar.gz"
+BACKUP_FILE="${BACKUP_DIR}/${WORLD_NAME}-${TIMESTAMP}.tar.gz"
 SCREEN_SESSION=${SCREEN_SESSION:-terraria}
 
 # 确认 screen 会话存在
@@ -37,9 +44,13 @@ else
 fi
 
 log "Creating backup: ${BACKUP_FILE}"
-tar -czf "$BACKUP_FILE" -C "$CONTAINER_WORLD_PATH" .
+tar -czf "$BACKUP_FILE" -C "$WORLD_DIR" .
 
 log "Cleaning old backups..."
-ls -1t ${CONTAINER_BACKUP_DIR}/*.tar.gz | tail -n +$((BACKUP_RETAIN + 1)) | xargs -r rm --
+find "$BACKUP_DIR" -maxdepth 1 -type f -name "*.tar.gz" -printf '%T@ %p\n' \
+  | sort -rn \
+  | tail -n +$((BACKUP_RETAIN + 1)) \
+  | cut -d' ' -f2- \
+  | xargs -r rm --
 
 log "Backup complete."

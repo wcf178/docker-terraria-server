@@ -2,7 +2,7 @@
 
 **Language:** [中文](README_zh.md) | English
 
-A Dockerized **Vanilla Terraria Server** solution that allows you to quickly deploy and run a persistent Terraria server on Linux using **Docker Compose**. All core configurations are managed via environment variables, with automatic world persistence, autosave, scheduled backups, and graceful shutdown support.
+A Dockerized **Vanilla Terraria Server** solution that allows you to quickly deploy and run a persistent Terraria server on Linux using **Docker Compose**. It includes a management dashboard for creating, switching, and backing up multiple worlds.
 
 > **Status**: Stable / v0.1.0
 > Focus: Stable, reproducible, and beginner-friendly Terraria server deployment.
@@ -19,6 +19,8 @@ A Dockerized **Vanilla Terraria Server** solution that allows you to quickly dep
 * **Graceful Shutdown**: Automatically saves the world when the container stops (SIGTERM).
 * **Health Checks**: Built-in health monitoring to ensure the server is responsive.
 * **Log Management**: Centralized logs for the entrypoint, backups, and restores.
+* **Multi-World Management**: Create and manage multiple worlds, switch between them ([documentation](MULTI-WORLD.md)).
+* **Web Dashboard**: Create worlds, choose the active world, view status and logs, and manage backups without entering a container.
 
 ---
 
@@ -51,13 +53,21 @@ cp env.example .env
 
 Edit `.env` to set your world name, password, and other preferences.
 
+To use the dashboard, set `MULTI_WORLD_MODE=1` and replace `DASHBOARD_PASSWORD` with a strong password.
+
 ### 3. Start the Server
 
 ```bash
 docker compose up -d
 ```
 
-### 4. Join the Game
+### 4. Open the Dashboard
+
+Open [http://localhost:8080](http://localhost:8080). On a fresh multi-world installation, create your first world in the dashboard and select **Run** to initialize and start the game server.
+
+The dashboard listens on localhost by default. Change `DASHBOARD_BIND` to `0.0.0.0` only when it is protected by a firewall or reverse proxy. It uses the Docker socket to restart the game container, so never expose it publicly without access controls.
+
+### 5. Join the Game
 
 * **IP**: Your server's public IP
 * **Port**: `7777` (default)
@@ -93,7 +103,15 @@ Configurations are managed via environment variables in the `.env` file. These a
 | `BACKUP_INTERVAL`| `30` | Backup frequency in minutes |
 | `BACKUP_RETAIN` | `10` | Number of backup files to keep |
 
-> ⚠️ **Note**: `server.conf` is generated **only once**. If you change `.env` later, you must delete `config/server.conf` and restart the container to regenerate it, or edit `server.conf` manually.
+### Multi-World Mode
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `MULTI_WORLD_MODE` | `0` | Enable multi-world management (1=Yes, 0=No) |
+
+> ⚠️ **Note**: In single-world mode, `server.conf` is generated **only once**. If you change `.env` later, delete `config/server.conf` and restart the container, or edit it manually. In multi-world mode it is refreshed from the selected world's configuration at every startup.
+>
+> See [Multi-World Documentation](MULTI-WORLD.md) for details on managing multiple worlds.
 
 ---
 

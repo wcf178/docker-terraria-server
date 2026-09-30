@@ -27,21 +27,70 @@ export MONO_PATH=/opt/terraria
 
 TZ=${TZ:-Asia/Shanghai}
 
-WORLD_NAME=${WORLD_NAME:-world}
-WORLD_PATH=${CONTAINER_WORLD_PATH:-/worlds}
-WORLD_FILE="${CONTAINER_WORLD_PATH}/${WORLD_NAME}.wld"
+# 多世界模式支持
+MULTI_WORLD_MODE=${MULTI_WORLD_MODE:-0}
+WORLDS_CONFIG_DIR="${CONTAINER_CONFIG_DIR}/worlds"
+ACTIVE_WORLD_FILE="${CONTAINER_CONFIG_DIR}/.active-world"
 
-AUTO_CREATE=${AUTO_CREATE:-1}
-WORLD_SIZE=${WORLD_SIZE:-2}
-DIFFICULTY=${DIFFICULTY:-0}
-SEED=${SEED:-}
+# 如果启用多世界模式，从 active-world 文件加载配置
+if [ "$MULTI_WORLD_MODE" = "1" ]; then
+  log "INFO: Multi-world mode enabled"
 
-SERVER_PORT=${SERVER_PORT:-7777}
-MAX_PLAYERS=${MAX_PLAYERS:-16}
-SERVER_PASSWORD=${SERVER_PASSWORD:-}
-LANGUAGE=${LANGUAGE:-en-US}
+  # 检查是否有激活的世界
+  if [ ! -f "$ACTIVE_WORLD_FILE" ]; then
+    log "ERROR: No active world set. Please create a world and activate it using 'manage-worlds.sh'"
+    log "INFO: Available commands:"
+    log "  docker compose exec terraria /usr/local/bin/manage-worlds.sh create <world_name> [options]"
+    log "  docker compose exec terraria /usr/local/bin/manage-worlds.sh switch <world_name>"
+    exit 1
+  fi
 
-AUTOSAVE=${AUTOSAVE:-1}
+  WORLD_NAME=$(cat "$ACTIVE_WORLD_FILE")
+  log "INFO: Active world: $WORLD_NAME"
+
+  # 检查世界配置是否存在
+  WORLD_CONFIG_FILE="${WORLDS_CONFIG_DIR}/${WORLD_NAME}.conf"
+  if [ ! -f "$WORLD_CONFIG_FILE" ]; then
+    log "ERROR: World configuration not found: $WORLD_CONFIG_FILE"
+    log "INFO: Please create a world using 'manage-worlds.sh create <world_name>'"
+    exit 1
+  fi
+
+  # 从配置文件加载设置
+  WORLD_PATH=$(grep "^world=" "$WORLD_CONFIG_FILE" | cut -d= -f2)
+  WORLD_FILE="${WORLD_PATH}"
+
+  AUTO_CREATE=$(grep "^autocreate=" "$WORLD_CONFIG_FILE" | cut -d= -f2)
+  WORLD_SIZE=$(grep "^worldsize=" "$WORLD_CONFIG_FILE" | cut -d= -f2)
+  DIFFICULTY=$(grep "^difficulty=" "$WORLD_CONFIG_FILE" | cut -d= -f2)
+  SERVER_PORT=$(grep "^port=" "$WORLD_CONFIG_FILE" | cut -d= -f2)
+  MAX_PLAYERS=$(grep "^maxplayers=" "$WORLD_CONFIG_FILE" | cut -d= -f2)
+  LANGUAGE=$(grep "^language=" "$WORLD_CONFIG_FILE" | cut -d= -f2)
+  AUTOSAVE=$(grep "^autosave=" "$WORLD_CONFIG_FILE" | cut -d= -f2)
+  SERVER_PASSWORD=$(grep "^password=" "$WORLD_CONFIG_FILE" | cut -d= -f2 || echo "")
+  SEED=$(grep "^seed=" "$WORLD_CONFIG_FILE" | cut -d= -f2 || echo "")
+
+  # 提取世界文件名（去除路径和扩展名）用于备份
+  WORLD_NAME_BASE=$(basename "$WORLD_FILE" .wld)
+  WORLD_NAME="${WORLD_NAME_BASE}"
+else
+  # 单世界模式（原有逻辑）
+  WORLD_NAME=${WORLD_NAME:-world}
+  WORLD_PATH=${CONTAINER_WORLD_PATH:-/worlds}
+  WORLD_FILE="${CONTAINER_WORLD_PATH}/${WORLD_NAME}.wld"
+
+  AUTO_CREATE=${AUTO_CREATE:-1}
+  WORLD_SIZE=${WORLD_SIZE:-2}
+  DIFFICULTY=${DIFFICULTY:-0}
+  SEED=${SEED:-}
+
+  SERVER_PORT=${SERVER_PORT:-7777}
+  MAX_PLAYERS=${MAX_PLAYERS:-16}
+  SERVER_PASSWORD=${SERVER_PASSWORD:-}
+  LANGUAGE=${LANGUAGE:-en-US}
+
+  AUTOSAVE=${AUTOSAVE:-1}
+fi
 
 TERRARIA_VERSION=${TERRARIA_VERSION:-1449}
 TERRARIA_ROOT=/opt/terraria
@@ -86,7 +135,11 @@ fi
 # 生成 server.conf
 #######################################
 
-if [ ! -f "$CONFIG_FILE" ]; then
+# 多世界模式下，server.conf 是当前活动世界配置的运行时副本。
+# 每次启动均刷新它，才能确保在后台切换世界后重启会生效。
+if [ "$MULTI_WORLD_MODE" = "1" ]; then
+  cp "$WORLD_CONFIG_FILE" "$CONFIG_FILE"
+elif [ ! -f "$CONFIG_FILE" ]; then
   cat > "$CONFIG_FILE" <<EOF
 world=$WORLD_FILE
 autocreate=$AUTO_CREATE
@@ -106,7 +159,12 @@ fi
 # screen 相关辅助
 #######################################
 
-SCREEN_SESSION=${SCREEN_SESSION:-terraria}
+# 在多世界模式下，使用世界名称作为 screen 会话名
+if [ "$MULTI_WORLD_MODE" = "1" ]; then
+  SCREEN_SESSION="terraria-${WORLD_NAME}"
+else
+  SCREEN_SESSION=${SCREEN_SESSION:-terraria}
+fi
 
 log "DEBUG: Environment variables:"
 log "  SCREEN_SESSION=$SCREEN_SESSION"
@@ -267,8 +325,8 @@ if [ "$ENABLE_BACKUP" = "1" ]; then
 #!/usr/bin/env bash
 # Cron wrapper for backup.sh with environment variables
 export WORLD_NAME="${WORLD_NAME}"
-export WORLD_PATH="${CONTAINER_WORLD_PATH}"
-export BACKUP_DIR="${CONTAINER_BACKUP_DIR}"
+export CONTAINER_WORLD_PATH="${CONTAINER_WORLD_PATH}"
+export CONTAINER_BACKUP_DIR="${CONTAINER_BACKUP_DIR}"
 export BACKUP_RETAIN=${BACKUP_RETAIN}
 export BACKUP_INTERVAL=${BACKUP_INTERVAL}
 # SERVER_PID 留空，backup.sh 会自动查找 Terraria 进程
